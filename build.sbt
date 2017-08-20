@@ -2,7 +2,7 @@ enablePlugins(OssLibPlugin)
 
 scalaVersion := tnm.ScalaVersion.prev
 
-name := "scriptable-ocpp"
+name := "docile-charge-point"
 
 organization := "de.reinier"
 
