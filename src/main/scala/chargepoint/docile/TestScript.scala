@@ -5,7 +5,7 @@ import java.net.URI
 import scala.language.higherKinds
 import cats.Monad
 import cats.implicits._
-import com.thenewmotion.ocpp.messages.BootNotificationReq
+import com.thenewmotion.ocpp.messages.{BootNotificationReq, GetConfigurationReq, BootNotificationRes}
 
 import dsl.CoreOps
 
@@ -28,9 +28,9 @@ object TestScript {
         meterType = None,
         meterSerialNumber = None)
       )
-      _ <- expect()
-      _ <- expect()
-      _ <- expect()
+      _ <- expectIncoming printingTheMessage; // matching { case _: BootNotificationRes => };
+      _ <- expectIncoming printingTheMessage;
+      _ <- expectIncoming matching { case _: GetConfigurationReq => };
       _ <- disconnect()
     } yield ()
   }

@@ -4,7 +4,7 @@ package dsl
 import java.net.URI
 import scala.language.higherKinds
 
-import com.thenewmotion.ocpp.messages.{Message, CentralSystemReqRes, CentralSystemReq, CentralSystemRes}
+import com.thenewmotion.ocpp.messages.{CentralSystemReqRes, CentralSystemReq, CentralSystemRes}
 
 
 trait CoreOps[F[_]] {
@@ -14,5 +14,5 @@ trait CoreOps[F[_]] {
 
   def send[Q <: CentralSystemReq](req: Q)(implicit reqRes: CentralSystemReqRes[Q, _ <: CentralSystemRes]): F[Unit]
 
-  def expect(): F[Message]
+  def expectIncoming: ExpectationBuilder[F]
 }

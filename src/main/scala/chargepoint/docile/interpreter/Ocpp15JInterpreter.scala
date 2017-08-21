@@ -6,6 +6,7 @@ import java.net.URI
 import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.util.Timeout
+import cats.implicits._
 import com.thenewmotion.ocpp.json.{OcppError, OcppJsonClient}
 import com.thenewmotion.ocpp.messages.{ChargePointRes, ChargePointReq, Message, CentralSystemReq, CentralSystemRes,  CentralSystemReqRes}
 
@@ -13,7 +14,7 @@ import scala.concurrent.{Future, ExecutionContext}
 import scala.concurrent.duration._
 import scala.util.{Success, Failure}
 
-import dsl.CoreOps
+import dsl.{CoreOps, ExpectationBuilder}
 
 class Ocpp15JInterpreter(system: ActorSystem) extends CoreOps[Future] {
 
@@ -65,6 +66,6 @@ class Ocpp15JInterpreter(system: ActorSystem) extends CoreOps[Future] {
       }
   }
 
-  def expect(): Future[Message] =
-      (receivedMsgs ? ReceivedMsgManager.Dequeue).mapTo[Message]
+  def expectIncoming: ExpectationBuilder[Future] =
+      ExpectationBuilder((receivedMsgs ? ReceivedMsgManager.Dequeue).mapTo[Message])
 }
