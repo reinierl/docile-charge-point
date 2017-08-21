@@ -3,14 +3,18 @@ package chargepoint.docile
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 
-import scala.concurrent.ExecutionContext.Implicits.global
+import akka.actor.ActorSystem
 import cats.instances.future._
 
 import interpreter.Ocpp15JInterpreter
 
 object RunTest extends App {
 
-  val interpreter = new Ocpp15JInterpreter()
+  val system = ActorSystem()
+
+  implicit val ec = system.dispatcher
+
+  val interpreter = new Ocpp15JInterpreter(system)
 
   System.out.println("interpreter instantiated")
 
