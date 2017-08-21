@@ -13,7 +13,9 @@ import scala.concurrent.{Future, ExecutionContext}
 import scala.concurrent.duration._
 import scala.util.{Success, Failure}
 
-class Ocpp15JInterpreter(system: ActorSystem) extends OcppOps[Future] {
+import dsl.CoreOps
+
+class Ocpp15JInterpreter(system: ActorSystem) extends CoreOps[Future] {
 
   implicit val ec: ExecutionContext = system.dispatcher
 

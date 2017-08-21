@@ -7,9 +7,11 @@ import cats.Monad
 import cats.implicits._
 import com.thenewmotion.ocpp.messages.BootNotificationReq
 
+import dsl.CoreOps
+
 object TestScript {
 
-  def connectAndSendBootAndBye[F[_]: Monad](ops: OcppOps[F]): F[Unit] = {
+  def connectAndSendBootAndBye[F[_]: Monad](ops: CoreOps[F]): F[Unit] = {
 
     import ops._
 
@@ -26,7 +28,6 @@ object TestScript {
         meterType = None,
         meterSerialNumber = None)
       )
-      _ <- expect()
       _ <- expect()
       _ <- expect()
       _ <- expect()
