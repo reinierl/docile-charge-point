@@ -1,4 +1,4 @@
-package de.reinier.ocpp.scriptable
+package chargepoint.docile
 
 import java.net.URI
 

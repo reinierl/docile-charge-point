@@ -1,10 +1,12 @@
-package de.reinier.ocpp.scriptable
+package chargepoint.docile
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import cats.instances.future._
+
+import interpreter.Ocpp15JInterpreter
 
 object RunTest extends App {
 

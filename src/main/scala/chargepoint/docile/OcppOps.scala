@@ -1,9 +1,9 @@
-package de.reinier.ocpp.scriptable
+package chargepoint.docile
 
 import java.net.URI
 import scala.language.higherKinds
 
-import com.thenewmotion.ocpp.messages.{Req, Message, CentralSystemReqRes, CentralSystemReq, CentralSystemRes}
+import com.thenewmotion.ocpp.messages.{Message, CentralSystemReqRes, CentralSystemReq, CentralSystemRes}
 
 
 trait OcppOps[F[_]] {
