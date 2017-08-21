@@ -27,6 +27,9 @@ object TestScript {
         meterSerialNumber = None)
       )
       _ <- expect()
+      _ <- expect()
+      _ <- expect()
+      _ <- expect()
       _ <- disconnect()
     } yield ()
   }

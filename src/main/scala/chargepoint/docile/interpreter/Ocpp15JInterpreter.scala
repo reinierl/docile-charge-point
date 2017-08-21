@@ -4,15 +4,20 @@ package interpreter
 import java.net.URI
 
 import akka.actor.ActorSystem
+import akka.pattern.ask
+import akka.util.Timeout
 import com.thenewmotion.ocpp.json.{OcppError, OcppJsonClient}
 import com.thenewmotion.ocpp.messages.{ChargePointRes, ChargePointReq, Message, CentralSystemReq, CentralSystemRes,  CentralSystemReqRes}
 
 import scala.concurrent.{Future, ExecutionContext}
+import scala.concurrent.duration._
 import scala.util.{Success, Failure}
 
 class Ocpp15JInterpreter(system: ActorSystem) extends OcppOps[Future] {
 
   implicit val ec: ExecutionContext = system.dispatcher
+
+  implicit val expectTimeout: Timeout = Timeout(5.seconds)
 
   var connection: Option[OcppJsonClient] = None
 
@@ -58,5 +63,6 @@ class Ocpp15JInterpreter(system: ActorSystem) extends OcppOps[Future] {
       }
   }
 
-  def expect(): Future[Message] = ???
+  def expect(): Future[Message] =
+      (receivedMsgs ? ReceivedMsgManager.Dequeue).mapTo[Message]
 }
