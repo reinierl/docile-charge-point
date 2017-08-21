@@ -19,4 +19,6 @@ object RunTest extends App {
   System.out.println("interpreter instantiated")
 
   Await.result(TestScript.connectAndSendBootAndBye[Future](interpreter), 5.seconds)
+
+  system.terminate()
 }
