@@ -1,16 +1,17 @@
 package chargepoint.docile
 package interpreter
 
-import akka.actor.{Actor, Props, ActorRef}
-import com.thenewmotion.ocpp.messages.Message
-
+import scala.concurrent.Future
 import scala.collection.mutable
+import akka.actor.{ActorRef, Actor, Props}
+
+import dsl.IncomingMessage
 
 class ReceivedMsgManager extends Actor {
 
   import ReceivedMsgManager._
 
-  val messages = mutable.Queue[Message]()
+  val messages = mutable.Queue[IncomingMessage[Future]]()
 
   val waiters = mutable.Queue[ActorRef]()
 
@@ -18,12 +19,12 @@ class ReceivedMsgManager extends Actor {
     case Enqueue(msg) =>
       messages.enqueue(msg)
 
-      if (!waiters.isEmpty) deliverOne()
+      if (waiters.nonEmpty) deliverOne()
 
     case Dequeue =>
       waiters.enqueue(sender())
 
-      if (!messages.isEmpty) deliverOne()
+      if (messages.nonEmpty) deliverOne()
   }
 
   private def deliverOne(): Unit = {
@@ -32,9 +33,9 @@ class ReceivedMsgManager extends Actor {
 }
 
 object ReceivedMsgManager {
-    def props(): Props = Props[ReceivedMsgManager]()
+  def props(): Props = Props[ReceivedMsgManager]()
 
-    sealed trait Command
-    case class Enqueue(msg: Message) extends Command
-    case object Dequeue extends Command
+  sealed trait Command
+  case class Enqueue(msg: IncomingMessage[Future]) extends Command
+  case object Dequeue extends Command
 }

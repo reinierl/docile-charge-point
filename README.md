@@ -8,7 +8,7 @@ it can be mean if you script it to be.
 
 ## TODOs
 
- * allow expecting responses
+ * allow expecting responses [X]
 
  * allow responding to incoming reqs
 

@@ -8,13 +8,12 @@ import akka.pattern.ask
 import akka.util.Timeout
 import cats.implicits._
 import com.thenewmotion.ocpp.json.{OcppError, OcppJsonClient}
-import com.thenewmotion.ocpp.messages.{ChargePointRes, ChargePointReq, Message, CentralSystemReq, CentralSystemRes,  CentralSystemReqRes}
+import com.thenewmotion.ocpp.messages._
 
-import scala.concurrent.{Future, ExecutionContext}
+import scala.concurrent.{Future, ExecutionContext, Promise}
 import scala.concurrent.duration._
 import scala.util.{Success, Failure}
-
-import dsl.{CoreOps, ExpectationBuilder}
+import dsl.{IncomingMessage, ExpectationBuilder, CoreOps}
 
 class Ocpp15JInterpreter(system: ActorSystem) extends CoreOps[Future] {
 
@@ -40,8 +39,18 @@ class Ocpp15JInterpreter(system: ActorSystem) extends CoreOps[Future] {
 
         override def onRequest(req: ChargePointReq): Future[ChargePointRes] = {
           System.out.println(s"Received incoming request: $req")
-          receivedMsgs ! ReceivedMsgManager.Enqueue(req)
-          throw new RuntimeException("not implemented!")
+
+          val responsePromise = Promise[ChargePointRes]()
+
+          def respond(res: ChargePointRes): Future[Unit] = Future.successful {
+            responsePromise.success(res)
+          }.mapTo[Unit]
+
+          receivedMsgs ! ReceivedMsgManager.Enqueue(
+            IncomingMessage[Future](req, respond _)
+          )
+
+          responsePromise.future
         }
       }
     }
@@ -58,7 +67,9 @@ class Ocpp15JInterpreter(system: ActorSystem) extends CoreOps[Future] {
     case Some (client) => Future.successful {
         client.send(req)(reqRes) onComplete {
           case Success(res) =>
-            receivedMsgs ! ReceivedMsgManager.Enqueue(res)
+            receivedMsgs ! ReceivedMsgManager.Enqueue(
+              IncomingMessage[Future](res)
+            )
           case Failure(e) => 
             System.err.println(s"Something went wrong sending OCPP request $req: ${e.getMessage}")
             e.printStackTrace()
@@ -67,5 +78,7 @@ class Ocpp15JInterpreter(system: ActorSystem) extends CoreOps[Future] {
   }
 
   def expectIncoming: ExpectationBuilder[Future] =
-      ExpectationBuilder((receivedMsgs ? ReceivedMsgManager.Dequeue).mapTo[Message])
+    ExpectationBuilder(
+      (receivedMsgs ? ReceivedMsgManager.Dequeue).mapTo[IncomingMessage[Future]]
+    )
 }
