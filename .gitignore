@@ -81,6 +81,8 @@ fabric.properties
 # Sonarlint plugin
 .idea/sonarlint
 
+/.idea
+
 # End of https://www.gitignore.io/api/intellij
 
 # Created by https://www.gitignore.io/api/sbt
