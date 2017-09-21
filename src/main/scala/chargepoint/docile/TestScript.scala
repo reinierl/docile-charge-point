@@ -2,10 +2,10 @@ package chargepoint.docile
 
 import java.net.URI
 
-import scala.language.higherKinds
+import scala.language.{higherKinds, postfixOps}
 import cats.Monad
 import cats.implicits._
-import com.thenewmotion.ocpp.messages.{BootNotificationReq, GetConfigurationReq, BootNotificationRes}
+import com.thenewmotion.ocpp.messages.{BootNotificationReq, GetConfigurationReq}
 
 import dsl.CoreOps
 
