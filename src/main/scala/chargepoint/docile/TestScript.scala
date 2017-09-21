@@ -29,7 +29,7 @@ object TestScript {
       )
       _ <- expectIncoming printingTheMessage; // matching { case _: BootNotificationRes => };
       _ <- expectIncoming printingTheMessage;
-      _ <- expectIncoming.getConfigurationReq.respondingWith(GetConfigurationRes(List(KeyValue(key = "aap", readonly = true, value = Some("zlurf"))), List("schaap", "blaat")))
+      _ <- expectIncoming.requestMatching { case _: GetConfigurationReq => }.respondingWith(GetConfigurationRes(List(KeyValue(key = "aap", readonly = true, value = Some("zlurf"))), List("schaap", "blaat")))
 
     // meant to fail, but at least make us wait for above response to arrive
       _ <- expectIncoming printingTheMessage;
