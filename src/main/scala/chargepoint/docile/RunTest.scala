@@ -1,6 +1,6 @@
 package chargepoint.docile
 
-import scala.concurrent.{Await, Future}
+import scala.concurrent.Await
 import scala.concurrent.duration._
 
 import akka.actor.ActorSystem
@@ -18,7 +18,9 @@ object RunTest extends App {
 
   System.out.println("interpreter instantiated")
 
-  Await.result(TestScript.connectAndSendBootAndBye[Future](interpreter), 5.seconds)
+  val res = Await.result(TestScript.connectAndSendBootAndBye(interpreter).value, 5.seconds)
+
+  System.out.println(s"Test result: $res")
 
   system.terminate()
 }

@@ -6,6 +6,7 @@ import java.net.URI
 import akka.actor.ActorSystem
 import akka.pattern.ask
 import akka.util.Timeout
+import cats.data.EitherT
 import cats.implicits._
 import com.thenewmotion.ocpp.json.{OcppError, OcppJsonClient}
 import com.thenewmotion.ocpp.messages._
@@ -15,7 +16,7 @@ import scala.concurrent.duration._
 import scala.util.{Success, Failure}
 import dsl.{IncomingMessage, ExpectationBuilder, CoreOps}
 
-class Ocpp15JInterpreter(system: ActorSystem) extends CoreOps[Future] {
+class Ocpp15JInterpreter(system: ActorSystem) extends CoreOps[IntM] {
 
   implicit val ec: ExecutionContext = system.dispatcher
 
@@ -25,7 +26,7 @@ class Ocpp15JInterpreter(system: ActorSystem) extends CoreOps[Future] {
 
   val receivedMsgs = system.actorOf(ReceivedMsgManager.props())
 
-  def connect(chargerId: String, endpoint: URI, password: Option[String]): Future[Unit] = {
+  def connect(chargerId: String, endpoint: URI, password: Option[String]): IntM[Unit] = {
     connection = Some {
       new OcppJsonClient(chargerId, endpoint, password) {
         override def onDisconnect(): Unit = {
@@ -42,12 +43,12 @@ class Ocpp15JInterpreter(system: ActorSystem) extends CoreOps[Future] {
 
           val responsePromise = Promise[ChargePointRes]()
 
-          def respond(res: ChargePointRes): Future[Unit] = Future.successful {
+          def respond(res: ChargePointRes): IntM[Unit] = IntM.pure {
             responsePromise.success(res)
-          }.mapTo[Unit]
+          }
 
           receivedMsgs ! ReceivedMsgManager.Enqueue(
-            IncomingMessage[Future](req, respond _)
+            IncomingMessage[IntM](req, respond _)
           )
 
           responsePromise.future
@@ -55,30 +56,37 @@ class Ocpp15JInterpreter(system: ActorSystem) extends CoreOps[Future] {
       }
     }
 
-    Future.successful(())
+    IntM.pure(())
   }
 
-  def disconnect() = Future.successful(connection.foreach(_.close()))
+  def disconnect() = IntM.pure(connection.foreach(_.close()))
 
-  def send[Q <: CentralSystemReq](req: Q)(implicit reqRes: CentralSystemReqRes[Q, _ <: CentralSystemRes]): Future[Unit] = connection match {
+  def send[Q <: CentralSystemReq](req: Q)(implicit reqRes: CentralSystemReqRes[Q, _ <: CentralSystemRes]): IntM[Unit] = connection match {
     case None =>
       System.err.println ("Trying to send req while not connected")
-      Future.successful (() )
-    case Some (client) => Future.successful {
+      IntM.pure (() )
+    case Some (client) => IntM.pure {
         client.send(req)(reqRes) onComplete {
           case Success(res) =>
             receivedMsgs ! ReceivedMsgManager.Enqueue(
-              IncomingMessage[Future](res)
+              IncomingMessage[IntM](res)
             )
-          case Failure(e) => 
+          case Failure(e) =>
             System.err.println(s"Something went wrong sending OCPP request $req: ${e.getMessage}")
             e.printStackTrace()
         }
       }
   }
 
-  def expectIncoming: ExpectationBuilder[Future] =
-    ExpectationBuilder(
-      (receivedMsgs ? ReceivedMsgManager.Dequeue).mapTo[IncomingMessage[Future]]
-    )
+  def expectIncoming: ExpectationBuilder[IntM] =
+    new ExpectationBuilder[IntM](
+      IntM.fromFuture {
+        (receivedMsgs ? ReceivedMsgManager.Dequeue).mapTo[IncomingMessage[IntM]]
+      }
+    ) {
+      override val core: CoreOps[IntM] = Ocpp15JInterpreter.this
+    }
+
+  def typedFailure[T](message: String): IntM[T] =
+    EitherT.leftT(ScriptFailure(message))
 }

@@ -1,17 +1,15 @@
 package chargepoint.docile
 package interpreter
 
-import scala.concurrent.Future
 import scala.collection.mutable
 import akka.actor.{ActorRef, Actor, Props}
-
 import dsl.IncomingMessage
 
 class ReceivedMsgManager extends Actor {
 
   import ReceivedMsgManager._
 
-  val messages = mutable.Queue[IncomingMessage[Future]]()
+  val messages = mutable.Queue[IncomingMessage[IntM]]()
 
   val waiters = mutable.Queue[ActorRef]()
 
@@ -36,6 +34,6 @@ object ReceivedMsgManager {
   def props(): Props = Props[ReceivedMsgManager]()
 
   sealed trait Command
-  case class Enqueue(msg: IncomingMessage[Future]) extends Command
+  case class Enqueue(msg: IncomingMessage[IntM]) extends Command
   case object Dequeue extends Command
 }

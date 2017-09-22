@@ -15,4 +15,8 @@ trait CoreOps[F[_]] {
   def send[Q <: CentralSystemReq](req: Q)(implicit reqRes: CentralSystemReqRes[Q, _ <: CentralSystemRes]): F[Unit]
 
   def expectIncoming: ExpectationBuilder[F]
+
+  def fail(message: String): F[Unit] = typedFailure[Unit](message)
+
+  def typedFailure[T](message: String): F[T]
 }

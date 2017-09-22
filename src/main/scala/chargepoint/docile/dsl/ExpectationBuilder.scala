@@ -10,17 +10,20 @@ import com.thenewmotion.ocpp.messages._
  * Wrapper around a Future[Message] that allows DSL methods to be called on it,
  * like "printingTheMessage" or "matching"
  */
-case class ExpectationBuilder[F[_] : Monad](promisedMsg: F[IncomingMessage[F]]) {
+abstract class ExpectationBuilder[F[_] : Monad](promisedMsg: F[IncomingMessage[F]]) {
+
+  def core: CoreOps[F]
   
   def matching[T](matchPF: PartialFunction[Message, T]): F[T] = 
-    for (msg <- promisedMsg) yield {
-      matchPF.lift(msg.message) match {
+    for {
+      msg <- promisedMsg
+      matchRes <- matchPF.lift(msg.message) match {
         case None =>
-          sys.error(s"Expectation failed on $msg")
+          core.typedFailure[T](s"Expectation failed on $msg")
         case Some(t) =>
-          t
+          t.pure[F]
       }
-    }
+    } yield matchRes
 
   def printingTheMessage: F[Unit] =
     promisedMsg map ((msg: IncomingMessage[F]) => println(msg.message))
@@ -30,22 +33,23 @@ case class ExpectationBuilder[F[_] : Monad](promisedMsg: F[IncomingMessage[F]]) 
   ): ResponseBuilder[F] = new ResponseBuilder[F] {
 
     def respondingWith(res: ChargePointRes): F[Unit] = {
-      for (msg <- promisedMsg) yield {
-        msg match {
-          case IncomingRequest(msg: GetConfigurationReq, respond) =>
+      for {
+        msg <- promisedMsg
+        res <- msg match {
+          case IncomingRequest(msg, respond) =>
             if (requestMatch.isDefinedAt(msg)) {
               respond(res)
-              ()
+              ().pure[F]
             } else {
-              sys.error(s"Expectation failed on $msg: not GetConfigurationReq")
+              core.fail(s"Expectation failed on $msg: not GetConfigurationReq")
             }
           case IncomingResponse(incomingRes) =>
-            sys.error(
+           core.fail(
               "Expecation failed: expected request, " +
               s"received response instead: $incomingRes"
             )
         }
-      }
+      } yield res
     }
   }
 
