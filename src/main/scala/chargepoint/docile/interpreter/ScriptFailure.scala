@@ -1,3 +1,5 @@
 package chargepoint.docile.interpreter
 
-case class ScriptFailure(message: String)
+sealed trait ScriptFailure
+case class ExpectationFailed(message: String) extends ScriptFailure
+case class ExecutionError(e: Throwable) extends ScriptFailure

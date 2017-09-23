@@ -63,8 +63,9 @@ class Ocpp15JInterpreter(system: ActorSystem) extends CoreOps[IntM] {
 
   def send[Q <: CentralSystemReq](req: Q)(implicit reqRes: CentralSystemReqRes[Q, _ <: CentralSystemRes]): IntM[Unit] = connection match {
     case None =>
-      System.err.println ("Trying to send req while not connected")
-      IntM.pure (() )
+      IntM.error[Unit](
+        new Exception("Trying to send an OCPP message while not connected")
+      )
     case Some (client) => IntM.pure {
         client.send(req)(reqRes) onComplete {
           case Success(res) =>
@@ -72,8 +73,7 @@ class Ocpp15JInterpreter(system: ActorSystem) extends CoreOps[IntM] {
               IncomingMessage[IntM](res)
             )
           case Failure(e) =>
-            System.err.println(s"Something went wrong sending OCPP request $req: ${e.getMessage}")
-            e.printStackTrace()
+            IntM.error[Unit](e)
         }
       }
   }
@@ -88,5 +88,5 @@ class Ocpp15JInterpreter(system: ActorSystem) extends CoreOps[IntM] {
     }
 
   def typedFailure[T](message: String): IntM[T] =
-    EitherT.leftT(ScriptFailure(message))
+    EitherT.leftT(ExpectationFailed(message))
 }

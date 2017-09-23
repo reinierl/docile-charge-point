@@ -14,5 +14,8 @@ package object interpreter {
 
     def pure[T](t: T)(implicit ec: ExecutionContext): IntM[T] =
       EitherT.pure[Future, ScriptFailure](t)
+
+    def error[T](e: Throwable)(implicit ec: ExecutionContext): IntM[T] =
+      EitherT.leftT[Future, T](ExecutionError(e): ScriptFailure)
   }
 }
