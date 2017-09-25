@@ -9,25 +9,37 @@ class ReceivedMsgManager extends Actor {
 
   import ReceivedMsgManager._
 
-  val messages = mutable.Queue[IncomingMessage[IntM]]()
+  private val messages = mutable.Queue[IncomingMessage[IntM]]()
 
-  val waiters = mutable.Queue[ActorRef]()
+  private val waiters = mutable.Queue[Waiter]()
 
   def receive = {
     case Enqueue(msg) =>
-      messages.enqueue(msg)
+      messages += msg
+      tryToDeliver()
 
-      if (waiters.nonEmpty) deliverOne()
-
-    case Dequeue =>
-      waiters.enqueue(sender())
-
-      if (messages.nonEmpty) deliverOne()
+    case Dequeue(numMsgs) =>
+      waiters += Waiter(sender(), numMsgs)
+      tryToDeliver()
   }
 
-  private def deliverOne(): Unit = {
-    waiters.dequeue() ! messages.dequeue()
+  private def tryToDeliver(): Unit = {
+    if (readyToDequeue) {
+      val waiter = waiters.dequeue
+
+      val delivery = mutable.ArrayBuffer[IncomingMessage[IntM]]()
+
+      1.to(waiter.numberOfMessages) foreach { _ =>
+        delivery += messages.dequeue()
+      }
+
+      System.err.println(s"tryToDeliver delivering ${delivery.toList}")
+      waiter.requester ! delivery.toList
+    }
   }
+
+  private def readyToDequeue: Boolean =
+    waiters.headOption map (_.numberOfMessages) exists (_ < messages.size)
 }
 
 object ReceivedMsgManager {
@@ -35,5 +47,7 @@ object ReceivedMsgManager {
 
   sealed trait Command
   case class Enqueue(msg: IncomingMessage[IntM]) extends Command
-  case object Dequeue extends Command
+  case class Dequeue(numMsgs: Int = 1) extends Command
+
+  private case class Waiter(requester: ActorRef, numberOfMessages: Int)
 }

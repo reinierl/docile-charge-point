@@ -81,8 +81,8 @@ class Ocpp15JInterpreter(system: ActorSystem) extends CoreOps[IntM] {
   def expectIncoming: ExpectationBuilder[IntM] =
     new ExpectationBuilder[IntM](
       IntM.fromFuture {
-        (receivedMsgs ? ReceivedMsgManager.Dequeue).mapTo[IncomingMessage[IntM]]
-      }
+        (receivedMsgs ? ReceivedMsgManager.Dequeue()).mapTo[List[IncomingMessage[IntM]]]
+      }.map(_.head)
     ) {
       override val core: CoreOps[IntM] = Ocpp15JInterpreter.this
     }
