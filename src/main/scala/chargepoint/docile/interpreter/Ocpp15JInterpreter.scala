@@ -8,10 +8,12 @@ import akka.pattern.ask
 import akka.util.Timeout
 import cats.data.EitherT
 import cats.implicits._
-import com.thenewmotion.ocpp.json.{OcppError, OcppJsonClient}
+import com.thenewmotion.ocpp.Version
+import com.thenewmotion.ocpp.json.api.{ChargePointRequestHandler, OcppError,
+                                      OcppJsonClient}
 import com.thenewmotion.ocpp.messages._
 
-import scala.concurrent.{Future, ExecutionContext, Promise}
+import scala.concurrent.{ExecutionContext, Promise}
 import scala.concurrent.duration._
 import scala.util.{Success, Failure}
 import dsl.{IncomingMessage, ExpectationBuilder, CoreOps}
@@ -26,9 +28,15 @@ class Ocpp15JInterpreter(system: ActorSystem) extends CoreOps[IntM] {
 
   val receivedMsgs = system.actorOf(ReceivedMsgManager.props())
 
-  def connect(chargerId: String, endpoint: URI, password: Option[String]): IntM[Unit] = {
+  def connect(
+    chargerId: String,
+    endpoint: URI,
+    version: Version,
+    password: Option[String] = None
+  ): IntM[Unit] = {
+
     connection = Some {
-      new OcppJsonClient(chargerId, endpoint, password) {
+      new OcppJsonClient(chargerId, endpoint, version, password) {
         override def onDisconnect(): Unit = {
           System.out.println(s"Disconnection confirmed by OCPP library")
           connection = null
@@ -38,21 +46,22 @@ class Ocpp15JInterpreter(system: ActorSystem) extends CoreOps[IntM] {
           System.err.println(s"Received error: $e")
         }
 
-        override def onRequest(req: ChargePointReq): Future[ChargePointRes] = {
-          System.out.println(s"Received incoming request: $req")
+        override def requestHandler: ChargePointRequestHandler = {
+          (req: ChargePointReq) =>
+            System.out.println(s"Received incoming request: $req")
 
-          val responsePromise = Promise[ChargePointRes]()
+            val responsePromise = Promise[ChargePointRes]()
 
-          def respond(res: ChargePointRes): IntM[Unit] = IntM.pure {
-            responsePromise.success(res)
-            ()
-          }
+            def respond(res: ChargePointRes): IntM[Unit] = IntM.pure {
+              responsePromise.success(res)
+              ()
+            }
 
-          receivedMsgs ! ReceivedMsgManager.Enqueue(
-            IncomingMessage[IntM](req, respond _)
-          )
+            receivedMsgs ! ReceivedMsgManager.Enqueue(
+              IncomingMessage[IntM](req, respond _)
+            )
 
-          responsePromise.future
+            responsePromise.future
         }
       }
     }

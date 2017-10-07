@@ -9,8 +9,8 @@ organization := "de.reinier"
 mainClass := Some("de.reinier.ocpp.scriptable.RunTest")
 
 libraryDependencies ++= Seq(
-  "com.thenewmotion.ocpp" %% "ocpp-json" % "4.3.0",
-  "org.typelevel" %% "cats-core" % "1.0.0-MF",
-  "com.typesafe.akka" %% "akka-actor" % "2.5.4"
+  "com.thenewmotion.ocpp" %% "ocpp-j-api"  % "6.0.0-beta3",
+  "org.typelevel"         %% "cats-core"   % "1.0.0-MF",
+  "com.typesafe.akka"     %% "akka-actor"  % "2.5.6"
 )
 

@@ -5,10 +5,11 @@ import java.net.URI
 import scala.language.higherKinds
 
 import com.thenewmotion.ocpp.messages.{CentralSystemReqRes, CentralSystemReq, CentralSystemRes}
+import com.thenewmotion.ocpp.Version
 
 
 trait CoreOps[F[_]] {
-  def connect(chargerId: String, endpoint: URI, password: Option[String]): F[Unit]
+  def connect(chargerId: String, endpoint: URI, version: Version, password: Option[String] = None): F[Unit]
 
   def disconnect(): F[Unit]
 
