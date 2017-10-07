@@ -45,6 +45,7 @@ class Ocpp15JInterpreter(system: ActorSystem) extends CoreOps[IntM] {
 
           def respond(res: ChargePointRes): IntM[Unit] = IntM.pure {
             responsePromise.success(res)
+            ()
           }
 
           receivedMsgs ! ReceivedMsgManager.Enqueue(

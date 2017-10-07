@@ -3,20 +3,17 @@ package chargepoint.docile
 import java.net.URI
 
 import scala.language.{higherKinds, postfixOps}
-import cats.Monad
 import cats.implicits._
 import com.thenewmotion.ocpp.messages._
-import dsl.CoreOps
+import test.OcppTest
 
-object TestScript {
+abstract class TestScript[F[_]] extends OcppTest[F] {
 
-  def connectAndSendBootAndBye[F[_]: Monad](ops: CoreOps[F]): F[Unit] = {
-
-    import ops._
+  "connect and send bye" in { ops =>
 
     for {
-      _ <- connect("03000001",new URI("ws://localhost:8017/ocppws"), None)
-      _ <- send(BootNotificationReq(
+      _ <- ops.connect("03000001", new URI("ws://test-chargenetwork.thenewmotion.com/ocppws"), None)
+      _ <- ops.send(BootNotificationReq(
         chargePointVendor = "NewMotion",
         chargePointModel = "Lolo 1337",
         chargePointSerialNumber = Some("03000001"),
@@ -27,13 +24,13 @@ object TestScript {
         meterType = None,
         meterSerialNumber = None)
       )
-      _ <- expectIncoming printingTheMessage; // matching { case _: BootNotificationRes => };
-      _ <- expectIncoming.requestMatching { case _: GetConfigurationReq => }.respondingWith(GetConfigurationRes(List(KeyValue(key = "aap", readonly = true, value = Some("zlurf"))), List("schaap", "blaat")))
-      _ <- expectIncoming.cancelReservationReq.respondingWith(CancelReservationRes(true))// GetLocalListVersionReq
+      _ <- ops.expectIncoming printingTheMessage; // matching { case _: BootNotificationRes => };
+      _ <- ops.expectIncoming.requestMatching { case _: GetConfigurationReq => }.respondingWith(GetConfigurationRes(List(KeyValue(key = "aap", readonly = true, value = Some("zlurf"))), List("schaap", "blaat")))
+      _ <- ops.expectIncoming.cancelReservationReq.respondingWith(CancelReservationRes(true))// GetLocalListVersionReq
 
       // // meant to fail, but at least make us wait for above response to arrive
       // _ <- expectIncoming printingTheMessage;
-      _ <- disconnect()
+      _ <- ops.disconnect()
     } yield ()
   }
 

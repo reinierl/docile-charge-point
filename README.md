@@ -34,7 +34,7 @@ it can be mean if you script it to be.
 
  * Split core / not so core DSL
 
-## TODOs after first release
+## TODOs after publication
 
  * support OCPP 1.6 TLS + Basic Auth
 
@@ -52,8 +52,7 @@ it can be mean if you script it to be.
 
 ## Difficult ideas
 
- * Add a DSL that needs no for comprehensions (using mutable state a la specs2?)
-
+ * Add a DSL that needs no for comprehensions (using mutable state a la specs2? embed Groovy?)
 
  * Allow run-time loading of text files with scripts
 
