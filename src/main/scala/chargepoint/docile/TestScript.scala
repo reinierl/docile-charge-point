@@ -1,19 +1,18 @@
 package chargepoint.docile
 
-import java.net.URI
 
 import scala.language.{higherKinds, postfixOps}
 import cats.implicits._
 import com.thenewmotion.ocpp.messages._
-import com.thenewmotion.ocpp.Version
 import test.OcppTest
+
 
 abstract class TestScript[F[_]] extends OcppTest[F] {
 
   "connect and send bye" in { ops =>
 
     for {
-      _ <- ops.connect("03000001", new URI("ws://test-chargenetwork.thenewmotion.com/ocppws"), Version.V16, None)
+      _ <- ops.connect()
       _ <- ops.send(BootNotificationReq(
         chargePointVendor = "NewMotion",
         chargePointModel = "Lolo 1337",

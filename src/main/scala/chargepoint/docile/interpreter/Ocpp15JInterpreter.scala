@@ -18,7 +18,13 @@ import scala.concurrent.duration._
 import scala.util.{Success, Failure}
 import dsl.{IncomingMessage, ExpectationBuilder, CoreOps}
 
-class Ocpp15JInterpreter(system: ActorSystem) extends CoreOps[IntM] {
+class Ocpp15JInterpreter(
+  system: ActorSystem,
+  chargerId: String,
+  endpoint: URI,
+  version: Version,
+  authKey: Option[String]
+) extends CoreOps[IntM] {
 
   implicit val ec: ExecutionContext = system.dispatcher
 
@@ -28,15 +34,10 @@ class Ocpp15JInterpreter(system: ActorSystem) extends CoreOps[IntM] {
 
   val receivedMsgs = system.actorOf(ReceivedMsgManager.props())
 
-  def connect(
-    chargerId: String,
-    endpoint: URI,
-    version: Version,
-    password: Option[String] = None
-  ): IntM[Unit] = {
+  def connect(): IntM[Unit] = {
 
     connection = Some {
-      new OcppJsonClient(chargerId, endpoint, version, password) {
+      new OcppJsonClient(chargerId, endpoint, version, authKey) {
         override def onDisconnect(): Unit = {
           System.out.println(s"Disconnection confirmed by OCPP library")
           connection = null
