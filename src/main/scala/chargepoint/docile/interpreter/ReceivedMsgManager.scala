@@ -15,16 +15,19 @@ class ReceivedMsgManager extends Actor {
 
   def receive = {
     case Enqueue(msg) =>
+      System.err.println(s"Enqueueing $msg")
       messages += msg
       tryToDeliver()
 
     case Dequeue(numMsgs) =>
+      System.err.println(s"Trying to dequeue $numMsgs")
       waiters += Waiter(sender(), numMsgs)
       tryToDeliver()
   }
 
   private def tryToDeliver(): Unit = {
     if (readyToDequeue) {
+      System.err.println("dequeuing...")
       val waiter = waiters.dequeue
 
       val delivery = mutable.ArrayBuffer[IncomingMessage[IntM]]()
@@ -35,11 +38,13 @@ class ReceivedMsgManager extends Actor {
 
       System.err.println(s"tryToDeliver delivering ${delivery.toList}")
       waiter.requester ! delivery.toList
+    } else {
+      System.err.println("Not ready to deliver")
     }
   }
 
   private def readyToDequeue: Boolean =
-    waiters.headOption map (_.numberOfMessages) exists (_ < messages.size)
+    waiters.headOption map (_.numberOfMessages) exists (_ <= messages.size)
 }
 
 object ReceivedMsgManager {

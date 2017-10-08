@@ -14,15 +14,25 @@ it can be mean if you script it to be.
 
  * Unified form of error collection and handling in the interpreter [X]
 
- * Expectations over more than one message (expectAnyOf, expectInAnyOrder, expectEventually)
+ * Expectations over more than one message (expectAnyOf, expectInAnyOrder, expectEventually) [-]
 
- * Including DSL for test names?
+ * Including DSL for test names? [X]
 
- * Result formatting, process return code
+ * Result formatting, process return code [X]
 
- * Connection based on command-line args, not supplied in script
+ * Connection based on command-line args, not supplied in script [X]
 
- * Execute all tests in a certain DIR
+ * Execute all tests in a certain DIR, or runtime-loading [X]
+
+ * Now still:
+
+     - output formatting /verbosity control
+
+     - split out of RunTest: runtime loading, test running, test formatting
+
+     - doc in README
+
+     - fat jar + runscript?
 
 ---
 
@@ -33,6 +43,8 @@ it can be mean if you script it to be.
 ---
 
  * Split core / not so core DSL
+
+ * Expectations over more than one message (expectAnyOf, expectInAnyOrder, expectEventually)
 
 ## TODOs after publication
 

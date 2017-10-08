@@ -6,9 +6,22 @@ import scala.collection.mutable
 import cats.Monad
 import dsl.CoreOps
 
+/**
+ * Extend this to create your OCPP test case.
+ *
+ * You define test cases like this:
+ *
+ *    "get response to heartbeat" in { ops =>
+ *      for {
+ *        _ <- ops.connect()
+ *        _ <- ops.send(HeartbeatReq)
+ *        _ <- ops.expectIncoming.matching { case HeartbeatRes(_) => }
+ *        _ <- ops.disconnect()
+ *      } yield ()
+ */
 trait OcppTest[F[_]] {
 
-  protected implicit val m: Monad[F]
+  implicit protected val m: Monad[F]
 
   case class TestCase(title: String, program: CoreOps[F] => F[Unit])
 

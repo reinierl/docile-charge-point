@@ -2,14 +2,15 @@ package chargepoint.docile
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.tools.reflect.ToolBox
 import java.net.URI
+import java.io.File
 import akka.actor.ActorSystem
-import cats.instances.future._
 import com.thenewmotion.ocpp.Version
 import org.rogach.scallop._
 
 import interpreter.{Ocpp15JInterpreter, ExpectationFailed, ExecutionError}
-import cats.Monad
+import test.OcppTest
 
 object RunTest extends App {
 
@@ -37,6 +38,10 @@ object RunTest extends App {
       descr = "URI of the Central System"
     )
 
+    val files = trailArg[List[String]](
+      descr = "files with test cases to load"
+    )
+
     verify()
   }
 
@@ -44,26 +49,64 @@ object RunTest extends App {
 
   implicit val ec = system.dispatcher
 
+  val testCases = conf.files().map { f =>
+    val file = new File(f)
+
+    import reflect.runtime.currentMirror
+    val toolbox = currentMirror.mkToolBox()
+
+    val preamble = s"""
+                    |import scala.language.{higherKinds, postfixOps}
+                    |import scala.concurrent.ExecutionContext.Implicits.global
+                    |import cats.implicits._
+                    |import cats.instances._
+                    |import cats.syntax._
+                    |import cats.Monad
+                    |import com.thenewmotion.ocpp.messages._
+                    |import chargepoint.docile.interpreter.IntM
+                    |import chargepoint.docile.test.OcppTest
+                    |
+                    |new OcppTest[IntM] {
+                    |  val m = implicitly[Monad[IntM]];
+                    """.stripMargin
+    val appendix = "}"
+
+    val fileContents = scala.io.Source.fromFile(file).getLines.mkString("\n")
+
+    val fileAst = toolbox.parse(preamble + fileContents + appendix)
+
+    System.err.println(s"Parsed $f")
+
+    val compiledCode = toolbox.compile(fileAst)
+
+    System.err.println(s"Compiled $f")
+
+    compiledCode().asInstanceOf[OcppTest[interpreter.IntM]]
+  }
+
   val testRunResults = {
-    val testableObject = new TestScript[interpreter.IntM] {
-      protected val m = implicitly[Monad[interpreter.IntM]]
-      System.out.println("Interpreter instantiated")
-    }
 
-    val int = new Ocpp15JInterpreter(
-      system,
-      conf.chargePointId(),
-      conf.uri(),
-      conf.version(),
-      conf.authKey.toOption
-    )
+    testCases.flatMap(_.tests.toList).map { test =>
+      System.err.println(s"Instantiating interpreter for ${test.title}")
 
-    testableObject.tests.toList.map { test =>
-      test.title -> test.program(int).value
+      val int = new Ocpp15JInterpreter(
+        system,
+        conf.chargePointId(),
+        conf.uri(),
+        conf.version(),
+        conf.authKey.toOption
+      )
+
+      System.err.println(s"Going to run ${test.title}")
+
+      val res = test.title -> test.program(int).value
+      System.err.println(s"Test running...")
+      res
     }
   }
 
   val outcomes = testRunResults map { testResult =>
+    System.err.println(s"Awaiting test ${testResult._1}")
     val res = Await.result(testResult._2, 5.seconds)
 
     val outcomeDescription = res match {

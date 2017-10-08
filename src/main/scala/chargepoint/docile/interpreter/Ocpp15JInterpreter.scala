@@ -80,6 +80,7 @@ class Ocpp15JInterpreter(
     case Some (client) => IntM.pure {
         client.send(req)(reqRes) onComplete {
           case Success(res) =>
+            System.err.println(s"<< $res")
             receivedMsgs ! ReceivedMsgManager.Enqueue(
               IncomingMessage[IntM](res)
             )
