@@ -63,7 +63,7 @@ object RunTest extends App {
     }
   }
 
-  testRunResults foreach { testResult =>
+  val outcomes = testRunResults map { testResult =>
     val res = Await.result(testResult._2, 5.seconds)
 
     val outcomeDescription = res match {
@@ -73,7 +73,12 @@ object RunTest extends App {
     }
 
     System.out.println(s"${testResult._1}: $outcomeDescription")
+
+    res
   }
 
-  system.terminate()
+  System.out.println("End of main body reached, terminating Akka...")
+  system.terminate() foreach { _ =>
+    System.exit(if (!outcomes.exists(_.isLeft)) 0 else 1)
+  }
 }
