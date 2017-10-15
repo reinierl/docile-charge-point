@@ -8,11 +8,12 @@ import java.io.File
 import akka.actor.ActorSystem
 import com.thenewmotion.ocpp.Version
 import org.rogach.scallop._
+import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory, StrictLogging}
 
 import interpreter.{Ocpp15JInterpreter, ExpectationFailed, ExecutionError}
 import test.OcppTest
 
-object RunTest extends App {
+object RunTest extends App with StrictLogging {
 
   object conf extends ScallopConf(args) {
     implicit val versionConverter =
@@ -34,6 +35,11 @@ object RunTest extends App {
       descr="ChargePointIdentity to identify ourselves to the Central System"
     )
 
+    val verbose = opt[Int](
+      default = Some(3),
+      descr="Verbosity (0-5)"
+    )
+
     val uri = trailArg[URI](
       descr = "URI of the Central System"
     )
@@ -43,6 +49,17 @@ object RunTest extends App {
     )
 
     verify()
+  }
+
+  LoggerConfig.factory = PrintLoggerFactory()
+  LoggerConfig.level = conf.verbose() match {
+    case 0 => LogLevel.OFF
+    case 1 => LogLevel.ERROR
+    case 2 => LogLevel.WARN
+    case 3 => LogLevel.INFO
+    case 4 => LogLevel.DEBUG
+    case 5 => LogLevel.TRACE
+    case _ => sys.error("Invalid verbosity, should be 0, 1, 2, 3, 4 or 5")
   }
 
   val system = ActorSystem()
@@ -75,11 +92,11 @@ object RunTest extends App {
 
     val fileAst = toolbox.parse(preamble + fileContents + appendix)
 
-    System.err.println(s"Parsed $f")
+    logger.debug(s"Parsed $f")
 
     val compiledCode = toolbox.compile(fileAst)
 
-    System.err.println(s"Compiled $f")
+    logger.debug(s"Compiled $f")
 
     compiledCode().asInstanceOf[OcppTest[interpreter.IntM]]
   }
@@ -87,7 +104,7 @@ object RunTest extends App {
   val testRunResults = {
 
     testCases.flatMap(_.tests.toList).map { test =>
-      System.err.println(s"Instantiating interpreter for ${test.title}")
+      logger.debug(s"Instantiating interpreter for ${test.title}")
 
       val int = new Ocpp15JInterpreter(
         system,
@@ -97,16 +114,16 @@ object RunTest extends App {
         conf.authKey.toOption
       )
 
-      System.err.println(s"Going to run ${test.title}")
+      logger.info(s"Going to run ${test.title}")
 
       val res = test.title -> test.program(int).value
-      System.err.println(s"Test running...")
+      logger.debug(s"Test running...")
       res
     }
   }
 
   val outcomes = testRunResults map { testResult =>
-    System.err.println(s"Awaiting test ${testResult._1}")
+    logger.debug(s"Awaiting test ${testResult._1}")
     val res = Await.result(testResult._2, 5.seconds)
 
     val outcomeDescription = res match {
@@ -115,13 +132,13 @@ object RunTest extends App {
       case Right(())                     => s"✅"
     }
 
-    System.out.println(s"${testResult._1}: $outcomeDescription")
+    println(s"${testResult._1}: $outcomeDescription")
 
     res
   }
 
-  System.out.println("End of main body reached, terminating Akka...")
+  logger.debug("End of main body reached, terminating Akka...")
   system.terminate() foreach { _ =>
-    System.exit(if (!outcomes.exists(_.isLeft)) 0 else 1)
+    sys.exit(if (!outcomes.exists(_.isLeft)) 0 else 1)
   }
 }

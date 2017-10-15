@@ -3,9 +3,11 @@ package interpreter
 
 import scala.collection.mutable
 import akka.actor.{ActorRef, Actor, Props}
+import slogging.StrictLogging
+
 import dsl.IncomingMessage
 
-class ReceivedMsgManager extends Actor {
+class ReceivedMsgManager extends Actor with StrictLogging {
 
   import ReceivedMsgManager._
 
@@ -15,19 +17,19 @@ class ReceivedMsgManager extends Actor {
 
   def receive = {
     case Enqueue(msg) =>
-      System.err.println(s"Enqueueing $msg")
+      logger.debug(s"Enqueueing $msg")
       messages += msg
       tryToDeliver()
 
     case Dequeue(numMsgs) =>
-      System.err.println(s"Trying to dequeue $numMsgs")
+      logger.debug(s"Trying to dequeue $numMsgs")
       waiters += Waiter(sender(), numMsgs)
       tryToDeliver()
   }
 
   private def tryToDeliver(): Unit = {
     if (readyToDequeue) {
-      System.err.println("dequeuing...")
+      logger.debug("delivering queued messages to expecters...")
       val waiter = waiters.dequeue
 
       val delivery = mutable.ArrayBuffer[IncomingMessage[IntM]]()
@@ -36,10 +38,10 @@ class ReceivedMsgManager extends Actor {
         delivery += messages.dequeue()
       }
 
-      System.err.println(s"tryToDeliver delivering ${delivery.toList}")
+      logger.debug(s"delivering ${delivery.toList}")
       waiter.requester ! delivery.toList
     } else {
-      System.err.println("Not ready to deliver")
+      logger.debug("Not ready to deliver")
     }
   }
 

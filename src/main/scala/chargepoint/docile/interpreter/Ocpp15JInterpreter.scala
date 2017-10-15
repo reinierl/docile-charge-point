@@ -12,6 +12,7 @@ import com.thenewmotion.ocpp.Version
 import com.thenewmotion.ocpp.json.api.{ChargePointRequestHandler, OcppError,
                                       OcppJsonClient}
 import com.thenewmotion.ocpp.messages._
+import slogging.StrictLogging
 
 import scala.concurrent.{ExecutionContext, Promise}
 import scala.concurrent.duration._
@@ -24,7 +25,7 @@ class Ocpp15JInterpreter(
   endpoint: URI,
   version: Version,
   authKey: Option[String]
-) extends CoreOps[IntM] {
+) extends CoreOps[IntM] with StrictLogging {
 
   implicit val ec: ExecutionContext = system.dispatcher
 
@@ -39,21 +40,22 @@ class Ocpp15JInterpreter(
     connection = Some {
       new OcppJsonClient(chargerId, endpoint, version, authKey) {
         override def onDisconnect(): Unit = {
-          System.out.println(s"Disconnection confirmed by OCPP library")
+          logger.debug(s"Disconnection confirmed by OCPP library")
           connection = null
         }
 
         override def onError(e: OcppError): Unit = {
-          System.err.println(s"Received error: $e")
+          logger.info(s"Received OCPP error: $e")
         }
 
         override def requestHandler: ChargePointRequestHandler = {
           (req: ChargePointReq) =>
-            System.out.println(s"Received incoming request: $req")
+            logger.info(s"<< $req")
 
             val responsePromise = Promise[ChargePointRes]()
 
             def respond(res: ChargePointRes): IntM[Unit] = IntM.pure {
+              logger.info(s">> $res")
               responsePromise.success(res)
               ()
             }
@@ -78,9 +80,10 @@ class Ocpp15JInterpreter(
         new Exception("Trying to send an OCPP message while not connected")
       )
     case Some (client) => IntM.pure {
+        logger.info(s">> $req")
         client.send(req)(reqRes) onComplete {
           case Success(res) =>
-            System.err.println(s"<< $res")
+            logger.info(s"<< $res")
             receivedMsgs ! ReceivedMsgManager.Enqueue(
               IncomingMessage[IntM](res)
             )
