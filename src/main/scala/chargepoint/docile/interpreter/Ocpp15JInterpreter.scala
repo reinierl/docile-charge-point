@@ -88,6 +88,7 @@ class Ocpp15JInterpreter(
               IncomingMessage[IntM](res)
             )
           case Failure(e) =>
+            logger.debug("Failed to get response to outgoing OCPP request")
             IntM.error[Unit](e)
         }
       }

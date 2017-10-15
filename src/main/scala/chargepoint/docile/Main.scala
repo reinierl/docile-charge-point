@@ -2,18 +2,16 @@ package chargepoint.docile
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.tools.reflect.ToolBox
 import java.net.URI
-import java.io.File
 import akka.actor.ActorSystem
 import com.thenewmotion.ocpp.Version
 import org.rogach.scallop._
 import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory, StrictLogging}
 
-import interpreter.{Ocpp15JInterpreter, ExpectationFailed, ExecutionError}
-import test.OcppTest
+import test.{Runner, RunnerConfig}
+import interpreter.{ExpectationFailed, ExecutionError}
 
-object RunTest extends App with StrictLogging {
+object Main extends App with StrictLogging {
 
   object conf extends ScallopConf(args) {
     implicit val versionConverter =
@@ -66,63 +64,18 @@ object RunTest extends App with StrictLogging {
 
   implicit val ec = system.dispatcher
 
-  val testCases = conf.files().map { f =>
-    val file = new File(f)
+  val runnerCfg = RunnerConfig(
+    system = system,
+    chargePointId = conf.chargePointId(),
+    uri = conf.uri(),
+    ocppVersion = conf.version(),
+    authKey = conf.authKey.toOption
+  )
 
-    import reflect.runtime.currentMirror
-    val toolbox = currentMirror.mkToolBox()
+  val programs = conf.files().map(Runner.loadFile)
+  val runner = new Runner(runnerCfg, programs)
 
-    val preamble = s"""
-                    |import scala.language.{higherKinds, postfixOps}
-                    |import scala.concurrent.ExecutionContext.Implicits.global
-                    |import cats.implicits._
-                    |import cats.instances._
-                    |import cats.syntax._
-                    |import cats.Monad
-                    |import com.thenewmotion.ocpp.messages._
-                    |import chargepoint.docile.interpreter.IntM
-                    |import chargepoint.docile.test.OcppTest
-                    |
-                    |new OcppTest[IntM] {
-                    |  val m = implicitly[Monad[IntM]];
-                    """.stripMargin
-    val appendix = "}"
-
-    val fileContents = scala.io.Source.fromFile(file).getLines.mkString("\n")
-
-    val fileAst = toolbox.parse(preamble + fileContents + appendix)
-
-    logger.debug(s"Parsed $f")
-
-    val compiledCode = toolbox.compile(fileAst)
-
-    logger.debug(s"Compiled $f")
-
-    compiledCode().asInstanceOf[OcppTest[interpreter.IntM]]
-  }
-
-  val testRunResults = {
-
-    testCases.flatMap(_.tests.toList).map { test =>
-      logger.debug(s"Instantiating interpreter for ${test.title}")
-
-      val int = new Ocpp15JInterpreter(
-        system,
-        conf.chargePointId(),
-        conf.uri(),
-        conf.version(),
-        conf.authKey.toOption
-      )
-
-      logger.info(s"Going to run ${test.title}")
-
-      val res = test.title -> test.program(int).value
-      logger.debug(s"Test running...")
-      res
-    }
-  }
-
-  val outcomes = testRunResults map { testResult =>
+  val outcomes = runner.run() map { testResult =>
     logger.debug(s"Awaiting test ${testResult._1}")
     val res = Await.result(testResult._2, 5.seconds)
 
