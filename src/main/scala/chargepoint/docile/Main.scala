@@ -77,7 +77,7 @@ object Main extends App with StrictLogging {
 
   val outcomes = runner.run() map { testResult =>
     logger.debug(s"Awaiting test ${testResult._1}")
-    val res = Await.result(testResult._2, 5.seconds)
+    val res = Await.result(testResult._2, 45.seconds)
 
     val outcomeDescription = res match {
       case Left(ExpectationFailed(msg)) => s"❌  $msg"

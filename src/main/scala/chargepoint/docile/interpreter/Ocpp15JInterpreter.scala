@@ -29,7 +29,7 @@ class Ocpp15JInterpreter(
 
   implicit val ec: ExecutionContext = system.dispatcher
 
-  implicit val expectTimeout: Timeout = Timeout(5.seconds)
+  implicit val expectTimeout: Timeout = Timeout(45.seconds)
 
   var connection: Option[OcppJsonClient] = None
 
