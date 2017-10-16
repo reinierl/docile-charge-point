@@ -65,7 +65,7 @@ object Runner extends StrictLogging {
                    |new OcppTest[IntM] {
                    |  val m = implicitly[Monad[IntM]];
                    """.stripMargin
-    val appendix = "}"
+    val appendix = "\n}"
 
     val fileContents = scala.io.Source.fromFile(file).getLines.mkString("\n")
 
