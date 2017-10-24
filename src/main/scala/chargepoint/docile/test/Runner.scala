@@ -35,7 +35,7 @@ class Runner(
         cfg.uri,
         cfg.ocppVersion,
         cfg.authKey
-      ) with dsl.expectations.Ops[IntM] {
+      ) with dsl.expectations.Ops[IntM] with dsl.shortsend.Ops[IntM] {
         val m: Monad[IntM] = implicitly[Monad[IntM]]
       }
 
