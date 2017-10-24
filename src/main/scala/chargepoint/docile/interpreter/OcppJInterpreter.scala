@@ -36,12 +36,22 @@ class OcppJInterpreter(
   val receivedMsgs = system.actorOf(ReceivedMsgManager.props())
 
   def connect(): IntM[Unit] = {
+    try {
+      connectSync()
+      IntM.pure(())
+    } catch {
+      case ex: Exception => IntM.error {
+          new RuntimeException(s"Could not connect: ${ex.getMessage}", ex)
+      }
+    }
+  }
 
+  private def connectSync(): Unit = {
     connection = Some {
-      new OcppJsonClient(chargerId, endpoint, version, authKey) {
+      new OcppJsonClient(chargerId, endpoint, List(version), authKey) {
         override def onDisconnect(): Unit = {
           logger.debug(s"Disconnection confirmed by OCPP library")
-          connection = null
+          OcppJInterpreter.this.connection = null
         }
 
         override def onError(e: OcppError): Unit = {
@@ -68,8 +78,6 @@ class OcppJInterpreter(
         }
       }
     }
-
-    IntM.pure(())
   }
 
   def disconnect() = IntM.pure(connection.foreach(_.close()))

@@ -3,13 +3,15 @@ package chargepoint.docile
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import java.net.URI
+
 import akka.actor.ActorSystem
 import com.thenewmotion.ocpp.Version
 import org.rogach.scallop._
 import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory, StrictLogging}
-
 import test.{Runner, RunnerConfig}
-import interpreter.{ExpectationFailed, ExecutionError}
+import interpreter.{ExecutionError, ExpectationFailed}
+
+import scala.util.{Failure, Success, Try}
 
 object Main extends App with StrictLogging {
 

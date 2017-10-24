@@ -9,7 +9,7 @@ organization := "de.reinier"
 mainClass := Some("chargepoint.docile.RunTest")
 
 libraryDependencies ++= Seq(
-  "com.thenewmotion.ocpp" %% "ocpp-j-api"     % "6.0.0-beta3",
+  "com.thenewmotion.ocpp" %% "ocpp-j-api"     % "6.0.0-SNAPSHOT",
   "org.typelevel"         %% "cats-core"      % "1.0.0-MF",
   "com.typesafe.akka"     %% "akka-actor"     % "2.5.6",
   "org.rogach"            %% "scallop"        % "3.1.0",
