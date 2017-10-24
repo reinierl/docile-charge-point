@@ -4,7 +4,7 @@ package test
 import scala.language.higherKinds
 import scala.collection.mutable
 import cats.Monad
-import dsl.{CoreOps, ExtraOps}
+import dsl.FullDslOps
 
 /**
  * Extend this to create your OCPP test case.
@@ -23,12 +23,12 @@ trait OcppTest[F[_]] {
 
   implicit protected val m: Monad[F]
 
-  case class TestCase(title: String, program: CoreOps[F] with ExtraOps[F] => F[Unit])
+  case class TestCase(title: String, program: FullDslOps[F] => F[Unit])
 
   var tests: mutable.ArrayBuffer[TestCase] = mutable.ArrayBuffer()
 
   implicit class StringAsTestTitle(title: String) {
-    def in(program: CoreOps[F] with ExtraOps[F] => F[Unit]): Unit = {
+    def in(program: FullDslOps[F] => F[Unit]): Unit = {
       tests += TestCase(title, program)
       ()
     }

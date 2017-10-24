@@ -1,11 +1,10 @@
 package chargepoint.docile
 package dsl
 
-
 import scala.language.higherKinds
+import com.thenewmotion.ocpp.messages.{CentralSystemReq, CentralSystemReqRes, CentralSystemRes}
 
-import com.thenewmotion.ocpp.messages.{CentralSystemReqRes, CentralSystemReq, CentralSystemRes}
-
+import expectations.IncomingMessage
 
 trait CoreOps[F[_]] {
   def connect(): F[Unit]

@@ -9,7 +9,6 @@ import scala.concurrent.Future
 import akka.actor.ActorSystem
 import cats.Monad
 import cats.implicits._
-import chargepoint.docile.dsl.ExtraOps
 import slogging.StrictLogging
 import com.thenewmotion.ocpp
 import interpreter.{IntM, OcppJInterpreter, ScriptFailure}
@@ -36,7 +35,7 @@ class Runner(
         cfg.uri,
         cfg.ocppVersion,
         cfg.authKey
-      ) with ExtraOps[IntM] {
+      ) with dsl.expectations.Ops[IntM] {
         val m: Monad[IntM] = implicitly[Monad[IntM]]
       }
 

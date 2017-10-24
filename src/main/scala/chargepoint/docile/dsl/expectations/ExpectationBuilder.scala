@@ -1,7 +1,9 @@
 package chargepoint.docile
 package dsl
+package expectations
 
 import scala.language.higherKinds
+
 import cats.Monad
 import cats.implicits._
 import com.thenewmotion.ocpp.messages._

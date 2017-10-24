@@ -8,16 +8,16 @@ import akka.pattern.ask
 import akka.util.Timeout
 import cats.data.EitherT
 import cats.implicits._
+import chargepoint.docile.dsl.expectations.IncomingMessage
 import com.thenewmotion.ocpp.Version
-import com.thenewmotion.ocpp.json.api.{ChargePointRequestHandler, OcppError,
-                                      OcppJsonClient}
+import com.thenewmotion.ocpp.json.api.{ChargePointRequestHandler, OcppError, OcppJsonClient}
 import com.thenewmotion.ocpp.messages._
 import slogging.StrictLogging
 
 import scala.concurrent.{ExecutionContext, Promise}
 import scala.concurrent.duration._
-import scala.util.{Success, Failure}
-import dsl.{IncomingMessage, ExpectationBuilder, CoreOps}
+import scala.util.{Failure, Success}
+import dsl.CoreOps
 
 class OcppJInterpreter(
   system: ActorSystem,

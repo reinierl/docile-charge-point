@@ -11,8 +11,6 @@ import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory, StrictLogging}
 import test.{Runner, RunnerConfig}
 import interpreter.{ExecutionError, ExpectationFailed}
 
-import scala.util.{Failure, Success, Try}
-
 object Main extends App with StrictLogging {
 
   object conf extends ScallopConf(args) {

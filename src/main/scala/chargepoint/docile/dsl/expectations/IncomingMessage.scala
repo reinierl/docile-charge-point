@@ -1,9 +1,11 @@
-package chargepoint.docile.dsl
-
-import scala.language.higherKinds
+package chargepoint.docile
+package dsl
+package expectations
 
 import cats.Monad
 import com.thenewmotion.ocpp.messages._
+
+import scala.language.higherKinds
 
 abstract class IncomingMessage[F[_]: Monad] {
   def message: Message

@@ -2,10 +2,10 @@ package chargepoint.docile
 package interpreter
 
 import scala.collection.mutable
-import akka.actor.{ActorRef, Actor, Props}
+import akka.actor.{Actor, ActorRef, Props}
 import slogging.StrictLogging
 
-import dsl.IncomingMessage
+import dsl.expectations.IncomingMessage
 
 class ReceivedMsgManager extends Actor with StrictLogging {
 
