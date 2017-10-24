@@ -8,7 +8,7 @@ import scala.concurrent.Future
 import akka.actor.ActorSystem
 import slogging.StrictLogging
 import com.thenewmotion.ocpp
-import interpreter.{Ocpp15JInterpreter, IntM, ScriptFailure}
+import interpreter.{OcppJInterpreter, IntM, ScriptFailure}
 
 case class RunnerConfig(
   system: ActorSystem,
@@ -26,7 +26,7 @@ class Runner(
     testCases.flatMap(_.tests.toList).map { test =>
       logger.debug(s"Instantiating interpreter for ${test.title}")
 
-      val int = new Ocpp15JInterpreter(
+      val int = new OcppJInterpreter(
         cfg.system,
         cfg.chargePointId,
         cfg.uri,

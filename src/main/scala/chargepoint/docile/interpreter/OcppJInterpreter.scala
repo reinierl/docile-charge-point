@@ -19,7 +19,7 @@ import scala.concurrent.duration._
 import scala.util.{Success, Failure}
 import dsl.{IncomingMessage, ExpectationBuilder, CoreOps}
 
-class Ocpp15JInterpreter(
+class OcppJInterpreter(
   system: ActorSystem,
   chargerId: String,
   endpoint: URI,
@@ -100,7 +100,7 @@ class Ocpp15JInterpreter(
         (receivedMsgs ? ReceivedMsgManager.Dequeue()).mapTo[List[IncomingMessage[IntM]]]
       }.map(_.head)
     ) {
-      override val core: CoreOps[IntM] = Ocpp15JInterpreter.this
+      override val core: CoreOps[IntM] = OcppJInterpreter.this
     }
 
   def typedFailure[T](message: String): IntM[T] =
