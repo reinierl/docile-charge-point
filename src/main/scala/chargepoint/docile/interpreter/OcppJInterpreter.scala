@@ -102,13 +102,9 @@ class OcppJInterpreter(
       }
   }
 
-  def expectIncoming: ExpectationBuilder[IntM] =
-    new ExpectationBuilder[IntM](
-      IntM.fromFuture {
-        (receivedMsgs ? ReceivedMsgManager.Dequeue()).mapTo[List[IncomingMessage[IntM]]]
-      }.map(_.head)
-    ) {
-      override val core: CoreOps[IntM] = OcppJInterpreter.this
+  def awaitIncoming(num: Int): IntM[Seq[IncomingMessage[IntM]]] =
+    IntM.fromFuture {
+      (receivedMsgs ? ReceivedMsgManager.Dequeue()).mapTo[List[IncomingMessage[IntM]]]
     }
 
   def typedFailure[T](message: String): IntM[T] =
