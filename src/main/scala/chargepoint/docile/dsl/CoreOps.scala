@@ -7,10 +7,6 @@ import com.thenewmotion.ocpp.messages.{CentralSystemReq, CentralSystemReqRes, Ce
 import expectations.IncomingMessage
 
 trait CoreOps[F[_]] {
-  def connect(): F[Unit]
-
-  def disconnect(): F[Unit]
-
   def send[Q <: CentralSystemReq](req: Q)(implicit reqRes: CentralSystemReqRes[Q, _ <: CentralSystemRes]): F[Unit]
 
   def awaitIncoming(num: Int): F[Seq[IncomingMessage[F]]]

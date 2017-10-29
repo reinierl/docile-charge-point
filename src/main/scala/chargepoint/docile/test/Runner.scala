@@ -3,14 +3,14 @@ package test
 
 import java.io.File
 import java.net.URI
-
 import scala.tools.reflect.ToolBox
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import akka.actor.ActorSystem
 import cats.Monad
 import cats.implicits._
 import slogging.StrictLogging
 import com.thenewmotion.ocpp
+
 import interpreter.{IntM, OcppJInterpreter, ScriptFailure}
 
 case class RunnerConfig(
@@ -29,6 +29,8 @@ class Runner(
     testCases.flatMap(_.tests.toList).map { test =>
       logger.debug(s"Instantiating interpreter for ${test.title}")
 
+      implicit val ec: ExecutionContext = cfg.system.dispatcher
+
       val int = new OcppJInterpreter(
         cfg.system,
         cfg.chargePointId,
@@ -41,9 +43,15 @@ class Runner(
 
       logger.info(s"Going to run ${test.title}")
 
-      val res = test.title -> test.program(int).value
+      val res = for {
+        _ <- int.connect()
+        testResult <- test.program(int)
+        _ <- int.disconnect()
+      } yield testResult
+
       logger.debug(s"Test running...")
-      res
+
+      test.title -> res.value
     }
 }
 

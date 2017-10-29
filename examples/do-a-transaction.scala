@@ -1,7 +1,5 @@
 "submit a transaction" in { ops =>
   for {
-    _    <- ops.connect()
-
     auth <- ops.authorize("12345678").map(_.idTag)
 
     _    <- if (auth.status == AuthorizationStatus.Accepted) {
@@ -23,8 +21,6 @@
     } else {
       IntM.pure(())
     }
-
-    _ <- ops.disconnect()
   } yield ()
 }
 
