@@ -67,6 +67,7 @@ object Runner extends StrictLogging {
     val preamble = s"""
                    |import scala.language.{higherKinds, postfixOps}
                    |import scala.concurrent.ExecutionContext.Implicits.global
+                   |import scala.concurrent.duration._
                    |import java.time._
                    |import cats.implicits._
                    |import cats.instances._

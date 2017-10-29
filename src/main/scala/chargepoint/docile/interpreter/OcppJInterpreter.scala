@@ -109,4 +109,10 @@ class OcppJInterpreter(
 
   def typedFailure[T](message: String): IntM[T] =
     EitherT.leftT(ExpectationFailed(message))
+
+  def wait(duration: FiniteDuration): IntM[Unit] = {
+    val p = Promise[Unit]()
+    system.scheduler.scheduleOnce(duration)(p.complete(Success(())))
+    IntM.fromFuture(p.future)
+  }
 }

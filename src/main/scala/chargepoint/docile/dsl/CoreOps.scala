@@ -2,6 +2,7 @@ package chargepoint.docile
 package dsl
 
 import scala.language.higherKinds
+import scala.concurrent.duration.FiniteDuration
 import com.thenewmotion.ocpp.messages.{CentralSystemReq, CentralSystemReqRes, CentralSystemRes}
 
 import expectations.IncomingMessage
@@ -14,4 +15,6 @@ trait CoreOps[F[_]] {
   def fail(message: String): F[Unit] = typedFailure[Unit](message)
 
   def typedFailure[T](message: String): F[T]
+
+  def wait(duration: FiniteDuration): F[Unit]
 }
