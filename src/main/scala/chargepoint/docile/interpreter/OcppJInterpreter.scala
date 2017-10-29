@@ -112,7 +112,15 @@ class OcppJInterpreter(
 
   def wait(duration: FiniteDuration): IntM[Unit] = {
     val p = Promise[Unit]()
-    system.scheduler.scheduleOnce(duration)(p.complete(Success(())))
+    val _ = system.scheduler.scheduleOnce(duration) {
+      p.complete(Success(()))
+      ()
+    }
     IntM.fromFuture(p.future)
+  }
+
+  def prompt(cue: String): IntM[String] = {
+    println(s"$cue: ")
+    IntM.pure(scala.io.StdIn.readLine())
   }
 }

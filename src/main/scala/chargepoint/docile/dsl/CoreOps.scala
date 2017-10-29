@@ -17,4 +17,6 @@ trait CoreOps[F[_]] {
   def typedFailure[T](message: String): F[T]
 
   def wait(duration: FiniteDuration): F[Unit]
+
+  def prompt(cue: String): F[String]
 }

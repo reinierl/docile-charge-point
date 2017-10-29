@@ -8,6 +8,8 @@ organization := "de.reinier"
 
 mainClass := Some("chargepoint.docile.RunTest")
 
+connectInput in run := true
+
 libraryDependencies ++= Seq(
   "com.thenewmotion.ocpp" %% "ocpp-j-api"     % "6.0.0-SNAPSHOT",
   "org.typelevel"         %% "cats-core"      % "1.0.0-MF",

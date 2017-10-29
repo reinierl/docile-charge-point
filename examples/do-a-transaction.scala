@@ -11,6 +11,8 @@
 
         _       <- ops.statusNotification(status = ChargePointStatus.Occupied(Some(OccupancyKind.Charging)))
 
+        _       <- ops.prompt("Press ENTER to stop charging")
+
         _       <- ops.statusNotification(status = ChargePointStatus.Occupied(Some(OccupancyKind.Finishing)))
 
         _       <- ops.stopTransaction(transactionId = transId, idTag = Some("12345678"))
