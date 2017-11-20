@@ -2,6 +2,7 @@ package chargepoint.docile
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.util.{Try, Success, Failure}
 import java.net.URI
 
 import akka.actor.ActorSystem
@@ -72,26 +73,42 @@ object Main extends App with StrictLogging {
     authKey = conf.authKey.toOption
   )
 
-  val programs = conf.files().map(Runner.loadFile)
-  val runner = new Runner(runnerCfg, programs)
-
-  val outcomes = runner.run() map { testResult =>
-    logger.debug(s"Awaiting test ${testResult._1}")
-    val res = Await.result(testResult._2, 45.seconds)
-
-    val outcomeDescription = res match {
-      case Left(ExpectationFailed(msg)) => s"❌  $msg"
-      case Left(ExecutionError(e))      => s"💥  ${e.getClass.getSimpleName} ${e.getMessage}"
-      case Right(())                     => s"✅"
-    }
-
-    println(s"${testResult._1}: $outcomeDescription")
-
-    res
+  Try(runThoseFiles(conf.files(), runnerCfg)) match {
+    case Success(testsPassed) =>
+      forceExit(testsPassed)
+    case Failure(e) =>
+      System.err.println(s"Could not run tests: ${e.getMessage}")
+      e.printStackTrace()
+      forceExit(false)
   }
 
-  logger.debug("End of main body reached, terminating Akka...")
-  system.terminate() foreach { _ =>
-    sys.exit(if (!outcomes.exists(_.isLeft)) 0 else 1)
+  private def runThoseFiles(files: List[String], runnerCfg: RunnerConfig): Boolean = {
+    val programs = conf.files().map(Runner.loadFile)
+    val runner = new Runner(runnerCfg, programs)
+
+    val outcomes = runner.run() map { testResult =>
+      logger.debug(s"Awaiting test ${testResult._1}")
+      val res = Await.result(testResult._2, 45.seconds)
+
+      val outcomeDescription = res match {
+        case Left(ExpectationFailed(msg)) => s"❌  $msg"
+        case Left(ExecutionError(e))      => s"💥  ${e.getClass.getSimpleName} ${e.getMessage}"
+        case Right(())                     => s"✅"
+      }
+
+      println(s"${testResult._1}: $outcomeDescription")
+
+      res
+    }
+
+    logger.debug("End of main body reached, terminating Akka...")
+
+    !outcomes.exists(_.isLeft)
+  }
+
+  private def forceExit(success: Boolean): Unit = {
+    system.terminate() onComplete { _ =>
+      sys.exit(if (success) 0 else 1)
+    }
   }
 }
