@@ -11,7 +11,7 @@ mainClass := Some("chargepoint.docile.RunTest")
 connectInput in run := true
 
 libraryDependencies ++= Seq(
-  "com.thenewmotion.ocpp" %% "ocpp-j-api"     % "6.0.0-SNAPSHOT",
+  "com.thenewmotion.ocpp" %% "ocpp-j-api"     % "6.0.0",
   "org.typelevel"         %% "cats-core"      % "1.0.0-MF",
   "com.typesafe.akka"     %% "akka-actor"     % "2.5.6",
   "org.rogach"            %% "scallop"        % "3.1.0",
