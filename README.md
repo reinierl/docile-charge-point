@@ -16,7 +16,15 @@ The aims for this thing:
 
  * Non-interactive command line interface, which combined with the test assertions makes it useful for use in CI/CD pipelines
 
-Scripts are expressed as Scala files, in which you use [for comprehensions](https://docs.scala-lang.org/tour/for-comprehensions.html) to chain a number of charge point actions. Examples of behavior scripts it can run already are [this](examples/heartbeat.scala) and [this](examples/authorize.scala).
+Scripts are expressed as Scala files, in which you can use predefined functions
+to send OCPP messages, make expectations about incoming messages or declare the
+test case failed. And next to that, all of Scala is at your disposal! Examples
+of behavior scripts it can run already are [a simple heartbeat script](examples/heartbeat.scala) and
+[a full simulation of a charge session](examples/do-a-transaction.scala). The full set of OCPP and testing specific
+functions can be found in
+[CoreOps](src/main/scala/chargepoint/docile/dsl/CoreOps.scala),
+[expectations.Ops](src/main/scala/chargepoint/docile/dsl/expectations/Ops.scala)
+and [shortsend.Ops](src/main/scala/chargepoint/docile/dsl/shortsend/Ops.scala).
 
 You can run the simulator like this, from the root directory of the project:
 
@@ -51,14 +59,6 @@ It's far from finished now. The next steps I plan to develop:
    can have nicer error reporting about these
 
 ## Other ideas
-
- * Nicer DSL, ideally usable for Scala non-natives. Ideas:
-
-       * Rolling my own parser from text, enabling REPL, piping from stdin, or executing script files
-
-       * Ditch Scala for Kotlin
-
-       * Use mutable variable holding state so we can git rid of for comprehensions. Would have to block thread instead of using Futures.
 
  * Web interface: click together test: 150 CPs behaving like this, 300 like that, ..., GO!
 
