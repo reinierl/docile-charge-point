@@ -55,7 +55,11 @@ object Runner extends StrictLogging {
   def loadFile(f: String): TestCase = {
 
     val file = new File(f)
-    val testName = f.reverse.dropWhile(_ != '.').reverse
+    val testNameRegex = "(?:.*/)?([^/]+?)(?:\\.[^.]*)?$".r
+    val testName = f match {
+      case testNameRegex(n) => n
+      case _                => f
+    }
 
     import reflect.runtime.currentMirror
     val toolbox = currentMirror.mkToolBox()
