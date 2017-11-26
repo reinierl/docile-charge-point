@@ -1,11 +1,7 @@
-"process getdiagnostics request" in { ops =>
-  for {
-    _ <- ops.expectIncoming matching { case gd: GetDiagnosticsReq => }
-    _ <- ops.send(DiagnosticsStatusNotificationReq(DiagnosticsStatus.Uploading))
-    _ <- ops.expectIncoming matching { case DiagnosticsStatusNotificationRes => }
-    _ <- ops.send(DiagnosticsStatusNotificationReq(DiagnosticsStatus.Uploaded))
-    _ <- ops.expectIncoming matching { case DiagnosticsStatusNotificationRes => }
-  } yield ()
-}
+expectIncoming matching { case gd: GetDiagnosticsReq => }
 
-// vim: set ts=4 sw=4 et:
+send(DiagnosticsStatusNotificationReq(DiagnosticsStatus.Uploading))
+expectIncoming matching { case DiagnosticsStatusNotificationRes => }
+
+send(DiagnosticsStatusNotificationReq(DiagnosticsStatus.Uploaded))
+expectIncoming matching { case DiagnosticsStatusNotificationRes => }
