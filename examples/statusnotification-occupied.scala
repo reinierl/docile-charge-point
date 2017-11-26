@@ -1,9 +1,3 @@
-"mark charge point as occupied" in { ops =>
+statusNotification(status = ChargePointStatus.Occupied(Some(OccupancyKind.Preparing)))
+statusNotification(status = ChargePointStatus.Occupied(Some(OccupancyKind.SuspendedEV)))
 
-  for {
-    _ <- ops.send(StatusNotificationReq(scope = ConnectorScope(0), timestamp = Some(ZonedDateTime.now()), status = ChargePointStatus.Occupied(None), vendorId = None))
-    _ <- ops.expectIncoming matching { case StatusNotificationRes => }
-  } yield ()
-}
-
-// vim: set ts=4 sw=4 et:

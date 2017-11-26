@@ -1,22 +1,60 @@
 package chargepoint.docile
 package dsl
 
-import scala.language.higherKinds
-import scala.concurrent.duration.FiniteDuration
+import java.util.concurrent.TimeoutException
+
+import scala.concurrent.duration._
+import scala.concurrent.Await
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.{Failure, Success, Try}
+import akka.pattern.ask
+import akka.util.Timeout
 import com.thenewmotion.ocpp.messages.{CentralSystemReq, CentralSystemReqRes, CentralSystemRes}
-
 import expectations.IncomingMessage
+import slogging.StrictLogging
 
-trait CoreOps[F[_]] {
-  def send[Q <: CentralSystemReq](req: Q)(implicit reqRes: CentralSystemReqRes[Q, _ <: CentralSystemRes]): F[Unit]
+trait CoreOps extends StrictLogging {
 
-  def awaitIncoming(num: Int): F[Seq[IncomingMessage[F]]]
+  self: OcppTest  =>
 
-  def fail(message: String): F[Unit] = typedFailure[Unit](message)
+  def send[Q <: CentralSystemReq](req: Q)(implicit reqRes: CentralSystemReqRes[Q, _ <: CentralSystemRes]): Unit =
+    ocppConnection match {
+      case None =>
+        throw ExpectationFailed("Trying to send an OCPP message while not connected")
+      case Some (client) =>
+        logger.info(s">> $req")
+        client.send(req)(reqRes) onComplete {
+          case Success(res) =>
+            logger.info(s"<< $res")
+            receivedMsgManager ! ReceivedMsgManager.Enqueue(
+              IncomingMessage(res)
+            )
+          case Failure(e) =>
+            logger.debug("Failed to get response to outgoing OCPP request")
+            // TODO handle this nicer; should be possible to write scripts expecting failure (without using catch ;-) )
+            throw ExecutionError(e)
+    }
+  }
 
-  def typedFailure[T](message: String): F[T]
 
-  def wait(duration: FiniteDuration): F[Unit]
+  def awaitIncoming(num: Int): Seq[IncomingMessage] = {
+    implicit val askTimeout = Timeout(45.seconds)
+    def getMsgs = (receivedMsgManager ? ReceivedMsgManager.Dequeue(num)).mapTo[List[IncomingMessage]]
+    Try(Await.result(getMsgs, 47.seconds)) match {
+      case Success(msgs)                => msgs
+      case Failure(e: TimeoutException) => fail(s"Expected message not received after 45 seconds")
+      case Failure(e)                   => error(e)
+    }
+  }
 
-  def prompt(cue: String): F[String]
+  def fail(message: String): Nothing = throw ExpectationFailed(message)
+
+  def error(throwable: Throwable): Nothing = throw ExecutionError(throwable)
+
+  def wait(duration: FiniteDuration): Unit = Thread.sleep(duration.toMillis)
+
+  def prompt(cue: String): String = {
+    println(s"$cue: ")
+    scala.io.StdIn.readLine()
+  }
 }

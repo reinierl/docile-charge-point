@@ -2,46 +2,36 @@ package chargepoint.docile
 package dsl
 package expectations
 
-import scala.language.higherKinds
-
-import cats.Monad
-import cats.implicits._
 import com.thenewmotion.ocpp.messages._
 
 /**
  * Wrapper around a Future[Message] that allows DSL methods to be called on it,
  * like "printingTheMessage" or "matching"
  */
-abstract class ExpectationBuilder[F[_] : Monad](promisedMsg: F[IncomingMessage[F]]) {
+abstract class ExpectationBuilder(promisedMsg: IncomingMessage) {
 
-  def core: CoreOps[F]
-  
-  def matching[T](matchPF: PartialFunction[Message, T]): F[T] = 
-    for {
-      msg <- promisedMsg
-      matchRes <- matchPF.lift(msg.message) match {
-        case None =>
-          core.typedFailure[T](s"Expectation failed on $msg")
-        case Some(t) =>
-          t.pure[F]
-      }
-    } yield matchRes
+  def core: CoreOps
 
-  def printingTheMessage: F[Unit] =
-    promisedMsg map ((msg: IncomingMessage[F]) => println(msg.message))
+  def matching[T](matchPF: PartialFunction[Message, T]): T =
+    matchPF.lift(promisedMsg.message) match {
+      case None =>
+        core.fail(s"Expectation failed on ${promisedMsg.message}")
+      case Some(t) =>
+        t
+    }
+
+  def printingTheMessage: Unit = println(promisedMsg.message)
 
   def requestMatching(
     requestMatch: PartialFunction[ChargePointReq, Unit]
-  ): ResponseBuilder[F] = new ResponseBuilder[F] {
+  ): ResponseBuilder = new ResponseBuilder {
 
-    def respondingWith(res: ChargePointRes): F[Unit] = {
-      for {
-        msg <- promisedMsg
-        res <- msg match {
+    def respondingWith(res: ChargePointRes): Unit = {
+        promisedMsg match {
           case IncomingRequest(msg, respond) =>
             if (requestMatch.isDefinedAt(msg)) {
               respond(res)
-              ().pure[F]
+              ()
             } else {
               core.fail(s"Expectation failed on $msg: not GetConfigurationReq")
             }
@@ -51,7 +41,6 @@ abstract class ExpectationBuilder[F[_] : Monad](promisedMsg: F[IncomingMessage[F
               s"received response instead: $incomingRes"
             )
         }
-      } yield res
     }
   }
 

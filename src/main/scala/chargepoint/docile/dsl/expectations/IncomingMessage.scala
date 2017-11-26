@@ -2,33 +2,30 @@ package chargepoint.docile
 package dsl
 package expectations
 
-import cats.Monad
 import com.thenewmotion.ocpp.messages._
 
-import scala.language.higherKinds
-
-abstract class IncomingMessage[F[_]: Monad] {
+abstract class IncomingMessage {
   def message: Message
 }
 
 object IncomingMessage {
-  def apply[F[_]: Monad](res: CentralSystemRes) = IncomingResponse[F](res)
+  def apply(res: CentralSystemRes) = IncomingResponse(res)
 
-  def apply[F[_]: Monad](
+  def apply(
     req: ChargePointReq,
-    respond: ChargePointRes => F[Unit]
+    respond: ChargePointRes => Unit
   ) = IncomingRequest(req, respond)
 }
 
-case class IncomingResponse[F[_]: Monad](
+case class IncomingResponse(
   res: CentralSystemRes
-) extends IncomingMessage[F] {
+) extends IncomingMessage {
   def message: CentralSystemRes = res
 }
 
-case class IncomingRequest[F[_]: Monad](
+case class IncomingRequest(
   req: ChargePointReq,
-  respond: ChargePointRes => F[Unit]
-) extends IncomingMessage[F] {
+  respond: ChargePointRes => Unit
+) extends IncomingMessage {
   def message: ChargePointReq = req
 }

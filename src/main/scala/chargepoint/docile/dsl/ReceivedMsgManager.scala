@@ -1,17 +1,16 @@
-package chargepoint.docile
-package interpreter
+package chargepoint.docile.dsl
 
-import scala.collection.mutable
 import akka.actor.{Actor, ActorRef, Props}
+import chargepoint.docile.dsl.expectations.IncomingMessage
 import slogging.StrictLogging
 
-import dsl.expectations.IncomingMessage
+import scala.collection.mutable
 
 class ReceivedMsgManager extends Actor with StrictLogging {
 
   import ReceivedMsgManager._
 
-  private val messages = mutable.Queue[IncomingMessage[IntM]]()
+  private val messages = mutable.Queue[IncomingMessage]()
 
   private val waiters = mutable.Queue[Waiter]()
 
@@ -32,7 +31,7 @@ class ReceivedMsgManager extends Actor with StrictLogging {
       logger.debug("delivering queued messages to expecters...")
       val waiter = waiters.dequeue
 
-      val delivery = mutable.ArrayBuffer[IncomingMessage[IntM]]()
+      val delivery = mutable.ArrayBuffer[IncomingMessage]()
 
       1.to(waiter.numberOfMessages) foreach { _ =>
         delivery += messages.dequeue()
@@ -53,7 +52,7 @@ object ReceivedMsgManager {
   def props(): Props = Props[ReceivedMsgManager]()
 
   sealed trait Command
-  case class Enqueue(msg: IncomingMessage[IntM]) extends Command
+  case class Enqueue(msg: IncomingMessage) extends Command
   case class Dequeue(numMsgs: Int = 1) extends Command
 
   private case class Waiter(requester: ActorRef, numberOfMessages: Int)

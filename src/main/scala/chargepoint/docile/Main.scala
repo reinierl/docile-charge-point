@@ -1,16 +1,13 @@
 package chargepoint.docile
 
-import scala.concurrent.Await
-import scala.concurrent.duration._
-import scala.util.{Try, Success, Failure}
 import java.net.URI
-
+import scala.util.{Try, Success, Failure}
 import akka.actor.ActorSystem
+import chargepoint.docile.dsl.{ExecutionError, ExpectationFailed}
 import com.thenewmotion.ocpp.Version
 import org.rogach.scallop._
 import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory, StrictLogging}
 import test.{Runner, RunnerConfig}
-import interpreter.{ExecutionError, ExpectationFailed}
 
 object Main extends App with StrictLogging {
 
@@ -84,21 +81,19 @@ object Main extends App with StrictLogging {
 
   private def runThoseFiles(files: List[String], runnerCfg: RunnerConfig): Boolean = {
     val programs = conf.files().map(Runner.loadFile)
-    val runner = new Runner(runnerCfg, programs)
+    val runner = new Runner(programs)
 
-    val outcomes = runner.run() map { testResult =>
-      logger.debug(s"Awaiting test ${testResult._1}")
-      val res = Await.result(testResult._2, 45.seconds)
+    val outcomes = runner.run(runnerCfg) map { case (testName, outcome) =>
 
-      val outcomeDescription = res match {
+      val outcomeDescription = outcome match {
         case Left(ExpectationFailed(msg)) => s"❌  $msg"
         case Left(ExecutionError(e))      => s"💥  ${e.getClass.getSimpleName} ${e.getMessage}"
         case Right(())                     => s"✅"
       }
 
-      println(s"${testResult._1}: $outcomeDescription")
+      println(s"$testName: $outcomeDescription")
 
-      res
+      outcome
     }
 
     logger.debug("End of main body reached, terminating Akka...")

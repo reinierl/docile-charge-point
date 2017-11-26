@@ -3,24 +3,17 @@ package dsl
 package shortsend
 
 import java.time.ZonedDateTime
-
-import scala.language.higherKinds
-import cats.Monad
-import cats.implicits._
+import scala.reflect.ClassTag
 import com.thenewmotion.ocpp.messages._
 
-import scala.reflect.ClassTag
+trait Ops {
 
-trait Ops[F[_]] {
+  self: CoreOps with expectations.Ops =>
 
-  self: CoreOps[F] with expectations.Ops[F] =>
-
-  implicit val m: Monad[F]
-
-  def authorize(idTag: String = "01020304"): F[AuthorizeRes] =
+  def authorize(idTag: String = "01020304"): AuthorizeRes =
     sendSync(AuthorizeReq(idTag))
 
-  def heartbeat(): F[HeartbeatRes] =
+  def heartbeat(): HeartbeatRes =
     sendSync(HeartbeatReq)
 
   def bootNotification(
@@ -34,7 +27,7 @@ trait Ops[F[_]] {
     imsi: Option[String] = None,
     meterType: Option[String] = None,
     meterSerialNumber: Option[String] = None
-  ): F[BootNotificationRes] =
+  ): BootNotificationRes =
     sendSync(BootNotificationReq(
       chargePointVendor,
       chargePointModel,
@@ -51,7 +44,7 @@ trait Ops[F[_]] {
     vendorId: String = "NewMotion",
     messageId: Option[String] = Some("MogrifyEspolusion"),
     data: Option[String] = None
-  ): F[CentralSystemDataTransferRes] =
+  ): CentralSystemDataTransferRes =
     sendSync(CentralSystemDataTransferReq(
       vendorId,
       messageId,
@@ -60,14 +53,14 @@ trait Ops[F[_]] {
 
   def diagnosticsStatusNotification(
     status: DiagnosticsStatus = DiagnosticsStatus.Idle
-  ): F[DiagnosticsStatusNotificationRes.type] =
+  ): DiagnosticsStatusNotificationRes.type =
     sendSync(DiagnosticsStatusNotificationReq(
       status
     ))
 
   def firmwareStatusNotification(
     status: FirmwareStatus = FirmwareStatus.Idle
-  ): F[FirmwareStatusNotificationRes.type] =
+  ): FirmwareStatusNotificationRes.type =
     sendSync(FirmwareStatusNotificationReq(
       status
     ))
@@ -91,7 +84,7 @@ trait Ops[F[_]] {
         )
       )
     )
-  ): F[MeterValuesRes.type] =
+  ): MeterValuesRes.type =
     sendSync(MeterValuesReq(
       scope,
       transactionId,
@@ -104,7 +97,7 @@ trait Ops[F[_]] {
     timestamp: ZonedDateTime = ZonedDateTime.now,
     meterStart: Int = 0,
     reservationId: Option[Int] = None
-  ): F[StartTransactionRes] =
+  ): StartTransactionRes =
     sendSync(StartTransactionReq(
       connector,
       idTag,
@@ -118,7 +111,7 @@ trait Ops[F[_]] {
     status: ChargePointStatus = ChargePointStatus.Available(),
     timestamp: Option[ZonedDateTime] = Some(ZonedDateTime.now()),
     vendorId: Option[String] = None
-  ): F[StatusNotificationRes.type] =
+  ): StatusNotificationRes.type =
     sendSync(StatusNotificationReq(
       scope,
       status,
@@ -133,7 +126,7 @@ trait Ops[F[_]] {
     meterStop: Int = 16000,
     reason: StopReason = StopReason.Local,
     meters: List[meter.Meter] = List()
-  ): F[StopTransactionRes] =
+  ): StopTransactionRes =
     sendSync(StopTransactionReq(
       transactionId,
       idTag,
@@ -144,9 +137,8 @@ trait Ops[F[_]] {
     ))
 
   def sendSync[REQ <: CentralSystemReq, RES <: CentralSystemRes : ClassTag](req: REQ)
-                                                                           (implicit reqRes: CentralSystemReqRes[REQ, RES]): F[RES] =
-    for {
-      _ <- self.send(req)
-      res <- self.expectIncoming matching { case res: RES => res }
-    } yield res
+                                                                           (implicit reqRes: CentralSystemReqRes[REQ, RES]): RES = {
+    self.send(req)
+    self.expectIncoming matching { case res: RES => res }
+  }
 }

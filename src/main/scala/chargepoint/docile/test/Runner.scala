@@ -4,14 +4,11 @@ package test
 import java.io.File
 import java.net.URI
 import scala.tools.reflect.ToolBox
-import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Try, Success, Failure}
 import akka.actor.ActorSystem
-import cats.Monad
-import cats.implicits._
+import chargepoint.docile.dsl._
 import slogging.StrictLogging
 import com.thenewmotion.ocpp
-
-import interpreter.{IntM, OcppJInterpreter, ScriptFailure}
 
 case class RunnerConfig(
   system: ActorSystem,
@@ -22,65 +19,61 @@ case class RunnerConfig(
 )
 
 class Runner(
-  cfg: RunnerConfig,
-  testCases: Seq[OcppTest[IntM]]
+  testCases: Seq[Runner.TestCase]
 ) extends StrictLogging {
-  def run(): Seq[(String, Future[Either[ScriptFailure, Unit]])] =
-    testCases.flatMap(_.tests.toList).map { test =>
-      logger.debug(s"Instantiating interpreter for ${test.title}")
+  // TODO: simpler result representation without Either?
+  def run(runnerCfg: RunnerConfig): Seq[(String, Either[ScriptFailure, Unit])] =
+    testCases.map { testCase =>
+      logger.debug(s"Going to connect ${testCase.name}")
+      testCase.test.connect(
+        runnerCfg.system.actorOf(ReceivedMsgManager.props()),
+        runnerCfg.chargePointId,
+        runnerCfg.uri,
+        runnerCfg.ocppVersion,
+        runnerCfg.authKey
+      )
 
-      implicit val ec: ExecutionContext = cfg.system.dispatcher
+      logger.info(s"Going to run ${testCase.name}")
 
-      val int = new OcppJInterpreter(
-        cfg.system,
-        cfg.chargePointId,
-        cfg.uri,
-        cfg.ocppVersion,
-        cfg.authKey
-      ) with dsl.expectations.Ops[IntM] with dsl.shortsend.Ops[IntM] {
-        val m: Monad[IntM] = implicitly[Monad[IntM]]
+      val res = Try(testCase.test.run()) match {
+        case Success(_)                => Right(())
+        case Failure(e: ScriptFailure) => Left(e)
+        case Failure(e: Exception)     => Left(ExecutionError(e))
+        case Failure(e)                => throw e
       }
-
-      logger.info(s"Going to run ${test.title}")
-
-      val res = for {
-        _ <- int.connect()
-        testResult <- test.program(int)
-        _ <- int.disconnect()
-      } yield testResult
 
       logger.debug(s"Test running...")
 
-      test.title -> res.value
+      testCase.name -> res
     }
 }
 
 object Runner extends StrictLogging {
 
-  def loadFile(f: String): OcppTest[IntM] = {
+  case class TestCase(name: String, test: OcppTest)
+
+  def loadFile(f: String): TestCase = {
 
     val file = new File(f)
+    val testName = f.reverse.dropWhile(_ != '.').reverse
 
     import reflect.runtime.currentMirror
     val toolbox = currentMirror.mkToolBox()
 
     val preamble = s"""
-                   |import scala.language.{higherKinds, postfixOps}
-                   |import scala.concurrent.ExecutionContext.Implicits.global
+                   |import scala.language.postfixOps
                    |import scala.concurrent.duration._
                    |import java.time._
-                   |import cats.implicits._
-                   |import cats.instances._
-                   |import cats.syntax._
-                   |import cats.Monad
                    |import com.thenewmotion.ocpp.messages._
-                   |import chargepoint.docile.interpreter.IntM
-                   |import chargepoint.docile.test.OcppTest
                    |
-                   |new OcppTest[IntM] {
-                   |  val m = implicitly[Monad[IntM]];
+                   |new chargepoint.docile.dsl.OcppTest
+                   |  with chargepoint.docile.dsl.CoreOps
+                   |  with chargepoint.docile.dsl.expectations.Ops
+                   |  with chargepoint.docile.dsl.shortsend.Ops {
+                   |
+                   |  def run() {
                    """.stripMargin
-    val appendix = "\n}"
+    val appendix = ";\n  }\n}"
 
     val fileContents = scala.io.Source.fromFile(file).getLines.mkString("\n")
 
@@ -92,7 +85,7 @@ object Runner extends StrictLogging {
 
     logger.debug(s"Compiled $f")
 
-    compiledCode().asInstanceOf[OcppTest[IntM]]
+    TestCase(testName, compiledCode().asInstanceOf[OcppTest])
   }
 }
 
