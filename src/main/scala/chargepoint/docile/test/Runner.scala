@@ -63,7 +63,11 @@ class Runner(
         case Failure(e)                => throw e
       }
 
-      logger.debug(s"Test running...")
+      logger.debug(s"Test ${testCase.name} run; disconnecting...")
+
+      testCase.test.disconnect()
+
+      logger.debug(s"Disconnected OCPP connection for ${testCase.name}")
 
       testCase.name -> res
     }
