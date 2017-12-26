@@ -38,6 +38,8 @@ so e.g.:
 sbt 'run -c chargepoint0123 -v 1.6 ws://example.org/ocpp-j-endpoint examples/heartbeat.scala'
 ```
 
+See `sbt 'run --help'` for more options.
+
 
 ## TODOs
 
