@@ -15,14 +15,35 @@ case class RunnerConfig(
   chargePointId: String,
   uri: URI,
   ocppVersion: ocpp.Version,
-  authKey: Option[String]
+  authKey: Option[String],
+  runMode: RunMode
 )
 
 class Runner(
   testCases: Seq[Runner.TestCase]
 ) extends StrictLogging {
-  // TODO: simpler result representation without Either?
+
   def run(runnerCfg: RunnerConfig): Seq[(String, Either[ScriptFailure, Unit])] =
+    runnerCfg.runMode match {
+      case OneOff =>
+        runOnce(runnerCfg)
+      case Repeat(pauseMillis) =>
+        runRepeat(runnerCfg, pauseMillis)
+    }
+
+  private def runRepeat(runnerCfg: RunnerConfig, pauseMillis: Int): Seq[(String, Either[ScriptFailure, Unit])] = {
+    println("Running in repeat mode. Press <ENTER> to stop.")
+    var res: Seq[(String, Either[ScriptFailure, Unit])] = Seq.empty
+
+    while (!(System.in.available() > 0)) {
+      res = runOnce(runnerCfg)
+      Thread.sleep(pauseMillis)
+    }
+
+    res
+  }
+
+  private def runOnce(runnerCfg: RunnerConfig): Seq[(String, Either[ScriptFailure, Unit])] =
     testCases.map { testCase =>
       logger.debug(s"Going to connect ${testCase.name}")
       testCase.test.connect(

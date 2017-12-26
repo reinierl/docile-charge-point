@@ -7,7 +7,7 @@ import chargepoint.docile.dsl.{ExecutionError, ExpectationFailed}
 import com.thenewmotion.ocpp.Version
 import org.rogach.scallop._
 import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory, StrictLogging}
-import test.{Runner, RunnerConfig}
+import test.{Runner, RunnerConfig, Repeat, OneOff}
 
 object Main extends App with StrictLogging {
 
@@ -29,6 +29,16 @@ object Main extends App with StrictLogging {
     val chargePointId = opt[String](
       default = Some("03000001"),
       descr="ChargePointIdentity to identify ourselves to the Central System"
+    )
+
+    val repeat = toggle(
+      default = Some(false),
+      descrYes = "Keep executing script until terminated"
+    )
+
+    val repeatPause = opt[Int](
+      default = Some(1000),
+      descr = "Number of milliseconds to wait between repeat runs"
     )
 
     val verbose = opt[Int](
@@ -67,7 +77,8 @@ object Main extends App with StrictLogging {
     chargePointId = conf.chargePointId(),
     uri = conf.uri(),
     ocppVersion = conf.version(),
-    authKey = conf.authKey.toOption
+    authKey = conf.authKey.toOption,
+    runMode = if (conf.repeat()) Repeat(conf.repeatPause()) else OneOff
   )
 
   Try(runThoseFiles(conf.files(), runnerCfg)) match {
