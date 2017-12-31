@@ -1,13 +1,14 @@
 package chargepoint.docile
 
 import java.net.URI
-import scala.util.{Try, Success, Failure}
+
+import scala.util.{Failure, Success, Try}
 import akka.actor.ActorSystem
-import chargepoint.docile.dsl.{ExecutionError, ExpectationFailed}
+import chargepoint.docile.dsl.{ExecutionError, ExpectationFailed, ScriptFailure}
 import com.thenewmotion.ocpp.Version
 import org.rogach.scallop._
 import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory, StrictLogging}
-import test.{Runner, RunnerConfig, Repeat, OneOff}
+import test._
 
 object Main extends App with StrictLogging {
 
@@ -29,6 +30,11 @@ object Main extends App with StrictLogging {
     val chargePointId = opt[String](
       default = Some("03000001"),
       descr="ChargePointIdentity to identify ourselves to the Central System"
+    )
+
+    val interactive = toggle(
+      default = Some(false),
+      descrYes = "Start REPL to enter and run a test interactively"
     )
 
     val repeat = toggle(
@@ -78,23 +84,32 @@ object Main extends App with StrictLogging {
     uri = conf.uri(),
     ocppVersion = conf.version(),
     authKey = conf.authKey.toOption,
-    runMode = if (conf.repeat()) Repeat(conf.repeatPause()) else OneOff
+    repeat =
+      if (conf.repeat())
+        Repeat(conf.repeatPause())
+      else
+        RunOnce
   )
 
-  Try(runThoseFiles(conf.files(), runnerCfg)) match {
+  val runner: Runner =
+    if (conf.interactive())
+      Runner.interactive(runnerCfg)
+    else
+      Runner.forFiles(conf.files(), runnerCfg)
+
+  Try(runner.run(runnerCfg)) match {
     case Success(testsPassed) =>
-      forceExit(testsPassed)
+      val succeeded = summarizeResults(testsPassed)
+      forceExit(succeeded)
     case Failure(e) =>
       System.err.println(s"Could not run tests: ${e.getMessage}")
       e.printStackTrace()
       forceExit(false)
   }
 
-  private def runThoseFiles(files: List[String], runnerCfg: RunnerConfig): Boolean = {
-    val programs = conf.files().map(Runner.loadFile)
-    val runner = new Runner(programs)
+  private def summarizeResults(testResults: Seq[(String, Either[ScriptFailure, Unit])]): Boolean = {
 
-    val outcomes = runner.run(runnerCfg) map { case (testName, outcome) =>
+    val outcomes = testResults map { case (testName, outcome) =>
 
       val outcomeDescription = outcome match {
         case Left(ExpectationFailed(msg)) => s"❌  $msg"
@@ -107,10 +122,12 @@ object Main extends App with StrictLogging {
       outcome
     }
 
-    logger.debug("End of main body reached, terminating Akka...")
+    logger.debug("Finished testing, returning from runner")
 
     !outcomes.exists(_.isLeft)
   }
+
+
 
   private def forceExit(success: Boolean): Unit = {
     system.terminate() onComplete { _ =>

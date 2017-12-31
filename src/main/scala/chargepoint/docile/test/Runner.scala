@@ -4,7 +4,6 @@ package test
 import java.io.File
 import java.net.URI
 import scala.tools.reflect.ToolBox
-import scala.util.{Try, Success, Failure}
 import akka.actor.ActorSystem
 import chargepoint.docile.dsl._
 import slogging.StrictLogging
@@ -16,68 +15,21 @@ case class RunnerConfig(
   uri: URI,
   ocppVersion: ocpp.Version,
   authKey: Option[String],
-  runMode: RunMode
+  repeat: RepeatMode
 )
 
-class Runner(
-  testCases: Seq[Runner.TestCase]
-) extends StrictLogging {
-
-  def run(runnerCfg: RunnerConfig): Seq[(String, Either[ScriptFailure, Unit])] =
-    runnerCfg.runMode match {
-      case OneOff =>
-        runOnce(runnerCfg)
-      case Repeat(pauseMillis) =>
-        runRepeat(runnerCfg, pauseMillis)
-    }
-
-  private def runRepeat(runnerCfg: RunnerConfig, pauseMillis: Int): Seq[(String, Either[ScriptFailure, Unit])] = {
-    println("Running in repeat mode. Press <ENTER> to stop.")
-    var res: Seq[(String, Either[ScriptFailure, Unit])] = Seq.empty
-
-    while (!(System.in.available() > 0)) {
-      res = runOnce(runnerCfg)
-      Thread.sleep(pauseMillis)
-    }
-
-    res
-  }
-
-  private def runOnce(runnerCfg: RunnerConfig): Seq[(String, Either[ScriptFailure, Unit])] =
-    testCases.map { testCase =>
-      logger.debug(s"Going to connect ${testCase.name}")
-      testCase.test.connect(
-        runnerCfg.system.actorOf(ReceivedMsgManager.props()),
-        runnerCfg.chargePointId,
-        runnerCfg.uri,
-        runnerCfg.ocppVersion,
-        runnerCfg.authKey
-      )
-
-      logger.info(s"Going to run ${testCase.name}")
-
-      val res = Try(testCase.test.run()) match {
-        case Success(_)                => Right(())
-        case Failure(e: ScriptFailure) => Left(e)
-        case Failure(e: Exception)     => Left(ExecutionError(e))
-        case Failure(e)                => throw e
-      }
-
-      logger.debug(s"Test ${testCase.name} run; disconnecting...")
-
-      testCase.test.disconnect()
-
-      logger.debug(s"Disconnected OCPP connection for ${testCase.name}")
-
-      testCase.name -> res
-    }
+trait Runner {
+  def run(runnerCfg: RunnerConfig): Seq[(String, Either[ScriptFailure, Unit])]
 }
 
 object Runner extends StrictLogging {
 
-  case class TestCase(name: String, test: OcppTest)
+  def interactive(config: RunnerConfig): Runner = ???
 
-  def loadFile(f: String): TestCase = {
+  def forFiles(files: Seq[String], config: RunnerConfig): Runner =
+    new PredefinedCaseRunner(files.map(loadFile))
+
+  private def loadFile(f: String): TestCase = {
 
     val file = new File(f)
     val testNameRegex = "(?:.*/)?([^/]+?)(?:\\.[^.]*)?$".r
