@@ -19,7 +19,7 @@ case class RunnerConfig(
 )
 
 trait Runner {
-  def run(runnerCfg: RunnerConfig): Seq[(String, Either[ScriptFailure, Unit])]
+  def run(runnerCfg: RunnerConfig): Seq[(String, TestResult)]
 }
 
 object Runner extends StrictLogging {

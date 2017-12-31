@@ -4,7 +4,7 @@ import java.net.URI
 
 import scala.util.{Failure, Success, Try}
 import akka.actor.ActorSystem
-import chargepoint.docile.dsl.{ExecutionError, ExpectationFailed, ScriptFailure}
+import chargepoint.docile.dsl.{ExecutionError, ExpectationFailed}
 import com.thenewmotion.ocpp.Version
 import org.rogach.scallop._
 import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory, StrictLogging}
@@ -107,14 +107,14 @@ object Main extends App with StrictLogging {
       forceExit(false)
   }
 
-  private def summarizeResults(testResults: Seq[(String, Either[ScriptFailure, Unit])]): Boolean = {
+  private def summarizeResults(testResults: Seq[(String, TestResult)]): Boolean = {
 
     val outcomes = testResults map { case (testName, outcome) =>
 
       val outcomeDescription = outcome match {
-        case Left(ExpectationFailed(msg)) => s"❌  $msg"
-        case Left(ExecutionError(e))      => s"💥  ${e.getClass.getSimpleName} ${e.getMessage}"
-        case Right(())                     => s"✅"
+        case TestFailed(ExpectationFailed(msg)) => s"❌  $msg"
+        case TestFailed(ExecutionError(e))      => s"💥  ${e.getClass.getSimpleName} ${e.getMessage}"
+        case TestPassed                         => s"✅"
       }
 
       println(s"$testName: $outcomeDescription")
@@ -124,7 +124,7 @@ object Main extends App with StrictLogging {
 
     logger.debug("Finished testing, returning from runner")
 
-    !outcomes.exists(_.isLeft)
+    outcomes.collect({ case TestFailed(_) => }).isEmpty
   }
 
 

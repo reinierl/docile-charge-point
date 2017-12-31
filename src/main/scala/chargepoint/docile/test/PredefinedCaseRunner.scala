@@ -7,14 +7,14 @@ import dsl.{ReceivedMsgManager, ScriptFailure, ExecutionError}
 
 class PredefinedCaseRunner(testCases: Seq[TestCase]) extends Runner with StrictLogging {
 
-  def run(runnerCfg: RunnerConfig): Seq[(String, Either[ScriptFailure, Unit])] = runnerCfg.repeat match {
+  def run(runnerCfg: RunnerConfig): Seq[(String, TestResult)] = runnerCfg.repeat match {
     case RunOnce       => runOnce(testCases, runnerCfg)
     case Repeat(pause) => runRepeat(testCases, runnerCfg, pauseMillis = pause)
   }
 
-  private def runRepeat(testCases: Seq[TestCase], runnerCfg: RunnerConfig, pauseMillis: Int): Seq[(String, Either[ScriptFailure, Unit])] = {
+  private def runRepeat(testCases: Seq[TestCase], runnerCfg: RunnerConfig, pauseMillis: Int): Seq[(String, TestResult)] = {
     println("Running in repeat mode. Press <ENTER> to stop.")
-    var res: Seq[(String, Either[ScriptFailure, Unit])] = Seq.empty
+    var res: Seq[(String, TestResult)] = Seq.empty
 
     while (!(System.in.available() > 0)) {
       res = runOnce(testCases, runnerCfg)
@@ -24,7 +24,7 @@ class PredefinedCaseRunner(testCases: Seq[TestCase]) extends Runner with StrictL
     res
   }
 
-  private def runOnce(testCases: Seq[TestCase], runnerCfg: RunnerConfig): Seq[(String, Either[ScriptFailure, Unit])] =
+  private def runOnce(testCases: Seq[TestCase], runnerCfg: RunnerConfig): Seq[(String, TestResult)] =
     testCases map { testCase =>
       logger.debug(s"Going to connect ${testCase.name}")
       testCase.test.connect(
@@ -38,9 +38,9 @@ class PredefinedCaseRunner(testCases: Seq[TestCase]) extends Runner with StrictL
       logger.info(s"Going to run ${testCase.name}")
 
       val res = Try(testCase.test.run()) match {
-        case Success(_)                => Right(())
-        case Failure(e: ScriptFailure) => Left(e)
-        case Failure(e: Exception)     => Left(ExecutionError(e))
+        case Success(_)                => TestPassed
+        case Failure(e: ScriptFailure) => TestFailed(e)
+        case Failure(e: Exception)     => TestFailed(ExecutionError(e))
         case Failure(e)                => throw e
       }
 
