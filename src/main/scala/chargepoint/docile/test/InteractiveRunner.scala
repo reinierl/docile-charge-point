@@ -20,6 +20,14 @@ class InteractiveOcppTest extends OcppTest {
   }
 
   def run(): Unit = {
-    ammonite.Main(predefCode = "import ops._").run("ops" -> ops)
+    val imports =
+      """
+        |import ops._
+        |import scala.language.postfixOps
+        |import scala.concurrent.duration._
+        |import java.time._
+        |import com.thenewmotion.ocpp.messages._
+      """.stripMargin
+    ammonite.Main(predefCode = imports).run("ops" -> ops)
   }
 }

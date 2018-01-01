@@ -40,6 +40,88 @@ sbt 'run -c chargepoint0123 -v 1.6 ws://example.org/ocpp-j-endpoint examples/hea
 
 See `sbt 'run --help'` for more options.
 
+## Interactive use
+
+You can also go into an interactive testing session on the command line.
+
+To get an interactive terminal, it's easiest to first compile using sbt:
+
+```
+sbt assembly
+```
+
+And then run `docile-charge-point` directly using the `java` command:
+
+```
+java -jar target/scala-2.11/docile.jar -i -v 1.6 -c chargepoint0123 ws://example.com/ocpp
+```
+
+The `-i` option here tells `docile-charge-point` to go into interactive mode.
+
+The app will start and something write this to the console:
+
+```
+[info, chargepoint.docile.test.InteractiveRunner] Going to run Interactive test
+Compiling (synthetic)/ammonite/predef/interpBridge.sc
+Compiling (synthetic)/ammonite/predef/replBridge.sc
+Compiling (synthetic)/ammonite/predef/DefaultPredef.sc
+Compiling (synthetic)/ammonite/predef/ArgsPredef.sc
+Compiling (synthetic)/ammonite/predef/CodePredef.sc
+Welcome to the Ammonite Repl 1.0.3
+(Scala 2.11.11 Java 1.8.0_144)
+If you like Ammonite, please support our development at www.patreon.com/lihaoyi
+@
+```
+
+The `@` sign on that last line is your prompt. You can now type expressions in the `docile-charge-point` DSL, like:
+
+```
+statusNotification()
+```
+
+and you'll see the docile-charge-point and the back-office exchange messages:
+
+```
+[info, chargepoint.docile.test.InteractiveOcppTest$$anon$1] >> StatusNotificationReq(ConnectorScope(0),Occupied(Some(Charging),None),Some(2018-01-01T15:12:43.251+01:00[Europe/Paris]),None)
+[info, chargepoint.docile.test.InteractiveOcppTest$$anon$1] << StatusNotificationRes
+```
+
+let's see what happens if we send a timestamp from before the epoch...
+
+```
+statusNotification(timestamp = Some(ZonedDateTime.of(1959, 1, 1, 12, 0, 0, 0, ZoneId.of("Z"))))
+```
+
+turns out it works surprisingly well :-):
+
+```
+[info, chargepoint.docile.test.InteractiveOcppTest$$anon$1] >> StatusNotificationReq(ConnectorScope(0),Available(None),Some(1959-01-01T12:00Z),None)
+[info, chargepoint.docile.test.InteractiveOcppTest$$anon$1] << StatusNotificationRes
+```
+
+You'll also see that the interactive mode prints something like this:
+
+```
+res0: StatusNotificationRes.type = StatusNotificationRes
+```
+
+That's the return value of the expression you entered, which in this case, is the StatusNotification response object. And because you're in a full-fledged Scala REPL using [Ammonite](ammonite.io), nothing is stopping you from doing fancy stuff with that. So you can for instance values from responses in subsequent requests:
+
+```
+@ startTransaction(idTag = "ABCDEF01")
+[info, chargepoint.docile.test.InteractiveOcppTest$$anon$1] >> StartTransactionReq(ConnectorScope(0),ABCDEF01,2018-01-01T15:22:30.122+01:00[Europe/Paris],0,None)
+[info, chargepoint.docile.test.InteractiveOcppTest$$anon$1] << StartTransactionRes(177,IdTagInfo(Accepted,None,Some(ABCDEF01)))
+res3: StartTransactionRes = StartTransactionRes(177, IdTagInfo(Accepted, None, Some("ABCDEF01")))
+
+@ stopTransaction(transactionId = res3.tr
+transactionId
+@ stopTransaction(transactionId = res3.transactionId)
+[info, chargepoint.docile.test.InteractiveOcppTest$$anon$1] >> StopTransactionReq(177,Some(ABCDEF01),2018-01-01T15:22:50.457+01:00[Europe/Paris],16000,Local,List())
+[info, chargepoint.docile.test.InteractiveOcppTest$$anon$1] << StopTransactionRes(Some(IdTagInfo(Accepted,None,Some(ABCDEF01))))
+res4: StopTransactionRes = StopTransactionRes(Some(IdTagInfo(Accepted, None, Some("ABCDEF01"))))
+```
+
+Note also that between those two requests, I used tab completion to look up the name of the `transactionId` field in the StopTransaction request.
 
 ## TODOs
 

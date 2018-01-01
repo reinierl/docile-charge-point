@@ -1,9 +1,7 @@
 package chargepoint.docile
 package test
 
-import scala.util.{Try, Success, Failure}
 import slogging.StrictLogging
-import dsl.{ReceivedMsgManager, ScriptFailure, ExecutionError}
 
 class PredefinedCaseRunner(testCases: Seq[TestCase]) extends Runner with StrictLogging {
 

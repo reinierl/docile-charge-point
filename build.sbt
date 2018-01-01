@@ -6,7 +6,9 @@ name := "docile-charge-point"
 
 organization := "de.reinier"
 
-mainClass := Some("chargepoint.docile.RunTest")
+mainClass := Some("chargepoint.docile.Main")
+
+assemblyJarName in assembly := "docile.jar"
 
 connectInput in run := true
 
