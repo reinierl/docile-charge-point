@@ -6,8 +6,7 @@ import dsl.{expectations, shortsend}
 
 class InteractiveOcppTest extends OcppTest {
   val ops = new CoreOps with expectations.Ops with shortsend.Ops {
-    def ocppConnection = InteractiveOcppTest.this.ocppConnection
-    def receivedMsgManager = InteractiveOcppTest.this.receivedMsgManager
+    def connectionData = InteractiveOcppTest.this.connectionData
   }
 
   def run(): Unit = {
@@ -20,5 +19,6 @@ class InteractiveOcppTest extends OcppTest {
         |import com.thenewmotion.ocpp.messages._
       """.stripMargin
     ammonite.Main(predefCode = imports).run("ops" -> ops)
+    ()
   }
 }

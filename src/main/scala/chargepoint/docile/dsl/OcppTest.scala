@@ -12,16 +12,7 @@ import com.thenewmotion.ocpp.messages.{ChargePointReq, ChargePointRes}
 import slogging.StrictLogging
 
 abstract class OcppTest extends StrictLogging {
-  /**
-    * The current OCPP connection
-    *
-    * This is a mutable Option[OcppJsonClient] instead of an immutable
-    * OcppJsonClient because I hope this will allow us to write tests that
-    * disconnect and reconnect when we have a more complete test DSL.
-    */
-  protected var ocppConnection: Option[OcppJsonClient] = None
-
-  protected var receivedMsgManager: ActorRef = _
+  protected var connectionData: OcppConnectionData = _
 
   def connect(
     receivedMsgManager: ActorRef,
@@ -30,13 +21,12 @@ abstract class OcppTest extends StrictLogging {
     version: Version,
     authKey: Option[String]
   ): Unit = {
-    this.receivedMsgManager = receivedMsgManager
-    ocppConnection = Some{
+    val ocppConnection = Some{
       new OcppJsonClient(chargerId, endpoint, List(version), authKey) {
 
         override def onDisconnect(): Unit = {
           logger.debug(s"Disconnection confirmed by OCPP library")
-          ocppConnection = None
+          connectionData = connectionData.copy(ocppClient = None)
         }
 
         override def onError(e: OcppError): Unit = {
@@ -63,9 +53,24 @@ abstract class OcppTest extends StrictLogging {
         }
       }
     }
+
+    connectionData = OcppConnectionData(ocppConnection, receivedMsgManager, chargerId)
   }
 
-  def disconnect(): Unit = ocppConnection.foreach(_.close())
+  def disconnect(): Unit = connectionData.ocppClient.foreach(_.close())
 
   def run(): Unit
 }
+
+case class OcppConnectionData(
+  /**
+    * The current OCPP connection
+    *
+    * This is a mutable Option[OcppJsonClient] instead of an immutable
+    * OcppJsonClient because I hope this will allow us to write tests that
+    * disconnect and reconnect when we have a more complete test DSL.
+    */
+  ocppClient: Option[OcppJsonClient],
+  receivedMsgManager: ActorRef,
+  chargePointIdentity: String
+)

@@ -19,9 +19,8 @@ trait Ops {
   def bootNotification(
     chargePointVendor: String = "The New Motion BV",
     chargePointModel: String = "Test Basic",
-    // TODO get current serial from interpreter somehow
-    chargePointSerialNumber: Option[String] = Some("00999999"),
-    chargeBoxSerialNumber: Option[String] = Some("00999999"),
+    chargePointSerialNumber: Option[String] = Some(connectionData.chargePointIdentity),
+    chargeBoxSerialNumber: Option[String] = Some(connectionData.chargePointIdentity),
     firmwareVersion: Option[String] = Some("1.0.0"),
     iccid: Option[String] = None,
     imsi: Option[String] = None,
