@@ -26,31 +26,7 @@ class PredefinedCaseRunner(testCases: Seq[TestCase]) extends Runner with StrictL
 
   private def runOnce(testCases: Seq[TestCase], runnerCfg: RunnerConfig): Seq[(String, TestResult)] =
     testCases map { testCase =>
-      logger.debug(s"Going to connect ${testCase.name}")
-      testCase.test.connect(
-        runnerCfg.system.actorOf(ReceivedMsgManager.props()),
-        runnerCfg.chargePointId,
-        runnerCfg.uri,
-        runnerCfg.ocppVersion,
-        runnerCfg.authKey
-      )
-
-      logger.info(s"Going to run ${testCase.name}")
-
-      val res = Try(testCase.test.run()) match {
-        case Success(_)                => TestPassed
-        case Failure(e: ScriptFailure) => TestFailed(e)
-        case Failure(e: Exception)     => TestFailed(ExecutionError(e))
-        case Failure(e)                => throw e
-      }
-
-      logger.debug(s"Test ${testCase.name} run; disconnecting...")
-
-      testCase.test.disconnect()
-
-      logger.debug(s"Disconnected OCPP connection for ${testCase.name}")
-
-      testCase.name -> res
+      runCase(runnerCfg, testCase)
     }
 }
 

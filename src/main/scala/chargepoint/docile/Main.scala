@@ -57,6 +57,7 @@ object Main extends App with StrictLogging {
     )
 
     val files = trailArg[List[String]](
+      required = false,
       descr = "files with test cases to load"
     )
 
@@ -94,8 +95,12 @@ object Main extends App with StrictLogging {
   val runner: Runner =
     if (conf.interactive())
       Runner.interactive(runnerCfg)
-    else
-      Runner.forFiles(conf.files(), runnerCfg)
+    else {
+      val files = conf.files.getOrElse {
+        sys.error("You have to give files on the command-line for a non-interactive run")
+      }
+      Runner.forFiles(files, runnerCfg)
+    }
 
   Try(runner.run(runnerCfg)) match {
     case Success(testsPassed) =>
