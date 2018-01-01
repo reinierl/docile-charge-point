@@ -1,7 +1,9 @@
 package chargepoint.docile
 package test
 
+import scala.util.{Failure, Success, Try}
 import slogging.StrictLogging
+import dsl.{ExecutionError, ReceivedMsgManager, ScriptFailure}
 
 class PredefinedCaseRunner(testCases: Seq[TestCase]) extends Runner with StrictLogging {
 
@@ -26,5 +28,33 @@ class PredefinedCaseRunner(testCases: Seq[TestCase]) extends Runner with StrictL
     testCases map { testCase =>
       runCase(runnerCfg, testCase)
     }
+
+  private def runCase(runnerCfg: RunnerConfig, c: TestCase): (String, TestResult) = {
+    logger.debug(s"Going to connect ${c.name}")
+    c.test.connect(
+      runnerCfg.system.actorOf(ReceivedMsgManager.props()),
+      runnerCfg.chargePointId,
+      runnerCfg.uri,
+      runnerCfg.ocppVersion,
+      runnerCfg.authKey
+    )
+
+    logger.info(s"Going to run ${c.name}")
+
+    val res = Try(c.test.run()) match {
+      case Success(_)                => TestPassed
+      case Failure(e: ScriptFailure) => TestFailed(e)
+      case Failure(e: Exception)     => TestFailed(ExecutionError(e))
+      case Failure(e)                => throw e
+    }
+
+    logger.debug(s"Test ${c.name} run; disconnecting...")
+
+    c.test.disconnect()
+
+    logger.debug(s"Disconnected OCPP connection for ${c.name}")
+
+    c.name -> res
+  }
 }
 

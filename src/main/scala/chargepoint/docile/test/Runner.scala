@@ -4,7 +4,6 @@ package test
 import java.io.File
 import java.net.URI
 import scala.tools.reflect.ToolBox
-import scala.util.{Try, Success, Failure}
 import akka.actor.ActorSystem
 import chargepoint.docile.dsl._
 import slogging.StrictLogging
@@ -22,39 +21,13 @@ case class RunnerConfig(
 trait Runner extends StrictLogging {
 
   def run(runnerCfg: RunnerConfig): Seq[(String, TestResult)]
-
-  protected def runCase(runnerCfg: RunnerConfig, c: TestCase): (String, TestResult) = {
-    logger.debug(s"Going to connect ${c.name}")
-    c.test.connect(
-      runnerCfg.system.actorOf(ReceivedMsgManager.props()),
-      runnerCfg.chargePointId,
-      runnerCfg.uri,
-      runnerCfg.ocppVersion,
-      runnerCfg.authKey
-    )
-
-    logger.info(s"Going to run ${c.name}")
-
-    val res = Try(c.test.run()) match {
-      case Success(_)                => TestPassed
-      case Failure(e: ScriptFailure) => TestFailed(e)
-      case Failure(e: Exception)     => TestFailed(ExecutionError(e))
-      case Failure(e)                => throw e
-    }
-
-    logger.debug(s"Test ${c.name} run; disconnecting...")
-
-    c.test.disconnect()
-
-    logger.debug(s"Disconnected OCPP connection for ${c.name}")
-
-    c.name -> res
-  }
 }
 
 object Runner extends StrictLogging {
 
-  def interactive(config: RunnerConfig): Runner = new InteractiveRunner()
+  def interactive(config: RunnerConfig): Runner = new PredefinedCaseRunner(
+    Seq(TestCase("Interactive test", new InteractiveOcppTest))
+  )
 
   def forFiles(files: Seq[String], config: RunnerConfig): Runner =
     new PredefinedCaseRunner(files.map(loadFile))
