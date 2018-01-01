@@ -2,20 +2,23 @@ package chargepoint.docile
 package dsl
 
 import java.util.concurrent.TimeoutException
-
 import scala.concurrent.duration._
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success, Try}
+import akka.actor.ActorRef
 import akka.pattern.ask
 import akka.util.Timeout
+import com.thenewmotion.ocpp.json.api.OcppJsonClient
 import com.thenewmotion.ocpp.messages.{CentralSystemReq, CentralSystemReqRes, CentralSystemRes}
 import expectations.IncomingMessage
 import slogging.StrictLogging
 
 trait CoreOps extends StrictLogging {
 
-  self: OcppTest  =>
+  protected def ocppConnection: Option[OcppJsonClient]
+
+  protected def receivedMsgManager: ActorRef
 
   def send[Q <: CentralSystemReq](req: Q)(implicit reqRes: CentralSystemReqRes[Q, _ <: CentralSystemRes]): Unit =
     ocppConnection match {

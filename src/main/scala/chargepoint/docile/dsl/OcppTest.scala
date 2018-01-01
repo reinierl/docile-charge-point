@@ -19,9 +19,9 @@ abstract class OcppTest extends StrictLogging {
     * OcppJsonClient because I hope this will allow us to write tests that
     * disconnect and reconnect when we have a more complete test DSL.
     */
-  var ocppConnection: Option[OcppJsonClient] = None
+  protected var ocppConnection: Option[OcppJsonClient] = None
 
-  var receivedMsgManager: ActorRef = _
+  protected var receivedMsgManager: ActorRef = _
 
   def connect(
     receivedMsgManager: ActorRef,
