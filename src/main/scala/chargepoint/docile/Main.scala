@@ -3,7 +3,6 @@ package chargepoint.docile
 import java.net.URI
 
 import scala.util.{Failure, Success, Try}
-import akka.actor.ActorSystem
 import chargepoint.docile.dsl.{ExecutionError, ExpectationFailed}
 import com.thenewmotion.ocpp.Version
 import org.rogach.scallop._
@@ -75,12 +74,9 @@ object Main extends App with StrictLogging {
     case _ => sys.error("Invalid verbosity, should be 0, 1, 2, 3, 4 or 5")
   }
 
-  val system = ActorSystem()
-
-  implicit val ec = system.dispatcher
+  implicit val ec = concurrent.ExecutionContext.Implicits.global
 
   val runnerCfg = RunnerConfig(
-    system = system,
     chargePointId = conf.chargePointId(),
     uri = conf.uri(),
     ocppVersion = conf.version(),
@@ -105,11 +101,11 @@ object Main extends App with StrictLogging {
   Try(runner.run(runnerCfg)) match {
     case Success(testsPassed) =>
       val succeeded = summarizeResults(testsPassed)
-      forceExit(succeeded)
+      sys.exit(if (succeeded) 0 else 1)
     case Failure(e) =>
       System.err.println(s"Could not run tests: ${e.getMessage}")
       e.printStackTrace()
-      forceExit(false)
+      sys.exit(2)
   }
 
   private def summarizeResults(testResults: Seq[(String, TestResult)]): Boolean = {
@@ -130,13 +126,5 @@ object Main extends App with StrictLogging {
     logger.debug("Finished testing, returning from runner")
 
     outcomes.collect({ case TestFailed(_) => }).isEmpty
-  }
-
-
-
-  private def forceExit(success: Boolean): Unit = {
-    system.terminate() onComplete { _ =>
-      sys.exit(if (success) 0 else 1)
-    }
   }
 }

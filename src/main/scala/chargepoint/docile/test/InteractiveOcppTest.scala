@@ -10,6 +10,7 @@ class InteractiveOcppTest extends OcppTest {
   }
 
   def run(): Unit = {
+
     val imports =
       """
         |import ops._
@@ -18,7 +19,16 @@ class InteractiveOcppTest extends OcppTest {
         |import java.time._
         |import com.thenewmotion.ocpp.messages._
       """.stripMargin
-    ammonite.Main(predefCode = imports).run("ops" -> ops)
+
+    ammonite.Main(predefCode = imports).run(
+      "ops" -> ops,
+      "q" -> { () =>
+        println {
+          connectionData.receivedMsgManager.currentQueueContents.mkString("\n")
+        }
+      }
+    )
+
     ()
   }
 }

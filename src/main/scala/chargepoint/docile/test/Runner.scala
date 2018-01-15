@@ -4,13 +4,11 @@ package test
 import java.io.File
 import java.net.URI
 import scala.tools.reflect.ToolBox
-import akka.actor.ActorSystem
 import chargepoint.docile.dsl._
 import slogging.StrictLogging
 import com.thenewmotion.ocpp
 
 case class RunnerConfig(
-  system: ActorSystem,
   chargePointId: String,
   uri: URI,
   ocppVersion: ocpp.Version,

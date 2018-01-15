@@ -1,12 +1,12 @@
 package chargepoint.docile.dsl
 
-import akka.actor.{Actor, ActorRef, Props}
+import scala.concurrent.{Future, Promise}
 import chargepoint.docile.dsl.expectations.IncomingMessage
 import slogging.StrictLogging
 
 import scala.collection.mutable
 
-class ReceivedMsgManager extends Actor with StrictLogging {
+class ReceivedMsgManager extends StrictLogging {
 
   import ReceivedMsgManager._
 
@@ -14,16 +14,24 @@ class ReceivedMsgManager extends Actor with StrictLogging {
 
   private val waiters = mutable.Queue[Waiter]()
 
-  def receive = {
-    case Enqueue(msg) =>
-      logger.debug(s"Enqueueing $msg")
-      messages += msg
-      tryToDeliver()
+  def enqueue(msg: IncomingMessage): Unit = synchronized {
+    logger.debug(s"Enqueueing $msg")
+    messages += msg
+    tryToDeliver()
+  }
 
-    case Dequeue(numMsgs) =>
+  def dequeue(numMsgs: Int): Future[List[IncomingMessage]] = synchronized {
       logger.debug(s"Trying to dequeue $numMsgs")
-      waiters += Waiter(sender(), numMsgs)
+
+      val promise = Promise[List[IncomingMessage]]()
+      waiters += Waiter(promise, numMsgs)
+
       tryToDeliver()
+      promise.future
+  }
+
+  def currentQueueContents: List[IncomingMessage] = synchronized {
+    messages.toList
   }
 
   private def tryToDeliver(): Unit = {
@@ -38,7 +46,8 @@ class ReceivedMsgManager extends Actor with StrictLogging {
       }
 
       logger.debug(s"delivering ${delivery.toList}")
-      waiter.requester ! delivery.toList
+      waiter.promise.success(delivery.toList)
+      ()
     } else {
       logger.debug("Not ready to deliver")
     }
@@ -49,11 +58,5 @@ class ReceivedMsgManager extends Actor with StrictLogging {
 }
 
 object ReceivedMsgManager {
-  def props(): Props = Props[ReceivedMsgManager]()
-
-  sealed trait Command
-  case class Enqueue(msg: IncomingMessage) extends Command
-  case class Dequeue(numMsgs: Int = 1) extends Command
-
-  private case class Waiter(requester: ActorRef, numberOfMessages: Int)
+  private case class Waiter(promise: Promise[List[IncomingMessage]], numberOfMessages: Int)
 }

@@ -4,7 +4,6 @@ import java.net.URI
 
 import scala.concurrent.Promise
 import scala.concurrent.ExecutionContext.Implicits.global
-import akka.actor.ActorRef
 import chargepoint.docile.dsl.expectations.IncomingMessage
 import com.thenewmotion.ocpp.Version
 import com.thenewmotion.ocpp.json.api._
@@ -15,7 +14,7 @@ abstract class OcppTest extends StrictLogging {
   protected var connectionData: OcppConnectionData = _
 
   def connect(
-    receivedMsgManager: ActorRef,
+    receivedMsgManager: ReceivedMsgManager,
     chargerId: String,
     endpoint: URI,
     version: Version,
@@ -45,7 +44,7 @@ abstract class OcppTest extends StrictLogging {
               ()
             }
 
-            receivedMsgManager ! ReceivedMsgManager.Enqueue(
+            receivedMsgManager.enqueue(
               IncomingMessage(req, respond)
             )
 
@@ -71,6 +70,6 @@ case class OcppConnectionData(
     * disconnect and reconnect when we have a more complete test DSL.
     */
   ocppClient: Option[OcppJsonClient],
-  receivedMsgManager: ActorRef,
+  receivedMsgManager: ReceivedMsgManager,
   chargePointIdentity: String
 )

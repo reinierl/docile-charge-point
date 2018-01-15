@@ -6,8 +6,6 @@ import scala.concurrent.duration._
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success, Try}
-import akka.pattern.ask
-import akka.util.Timeout
 import com.thenewmotion.ocpp.messages.{CentralSystemReq, CentralSystemReqRes, CentralSystemRes}
 import expectations.IncomingMessage
 import slogging.StrictLogging
@@ -25,7 +23,7 @@ trait CoreOps extends StrictLogging {
         client.send(req)(reqRes) onComplete {
           case Success(res) =>
             logger.info(s"<< $res")
-            connectionData.receivedMsgManager ! ReceivedMsgManager.Enqueue(
+            connectionData.receivedMsgManager.enqueue(
               IncomingMessage(res)
             )
           case Failure(e) =>
@@ -37,9 +35,8 @@ trait CoreOps extends StrictLogging {
 
 
   def awaitIncoming(num: Int): Seq[IncomingMessage] = {
-    implicit val askTimeout = Timeout(45.seconds)
-    def getMsgs = (connectionData.receivedMsgManager ? ReceivedMsgManager.Dequeue(num)).mapTo[List[IncomingMessage]]
-    Try(Await.result(getMsgs, 47.seconds)) match {
+    def getMsgs = connectionData.receivedMsgManager.dequeue(num)
+    Try(Await.result(getMsgs, 45.seconds)) match {
       case Success(msgs)                => msgs
       case Failure(e: TimeoutException) => fail(s"Expected message not received after 45 seconds")
       case Failure(e)                   => error(e)

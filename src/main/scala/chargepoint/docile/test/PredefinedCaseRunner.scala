@@ -32,7 +32,7 @@ class PredefinedCaseRunner(testCases: Seq[TestCase]) extends Runner with StrictL
   private def runCase(runnerCfg: RunnerConfig, c: TestCase): (String, TestResult) = {
     logger.debug(s"Going to connect ${c.name}")
     c.test.connect(
-      runnerCfg.system.actorOf(ReceivedMsgManager.props()),
+      new ReceivedMsgManager(),
       runnerCfg.chargePointId,
       runnerCfg.uri,
       runnerCfg.ocppVersion,
