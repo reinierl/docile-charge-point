@@ -139,9 +139,6 @@ It's far from finished now. The next steps I plan to develop:
 
  * support OCPP 1.6 TLS + Basic Auth
 
- * Nicer asynchronous-but-checkable open, close operations in OCPP library so we
-   can have nicer error reporting about these
-
 ## Other ideas
 
  * Web interface: click together test: 150 CPs behaving like this, 300 like that, ..., GO!
