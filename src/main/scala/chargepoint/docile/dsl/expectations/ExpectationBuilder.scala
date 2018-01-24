@@ -22,16 +22,17 @@ abstract class ExpectationBuilder(promisedMsg: IncomingMessage) {
 
   def printingTheMessage: Unit = println(promisedMsg.message)
 
-  def requestMatching(
-    requestMatch: PartialFunction[ChargePointReq, Unit]
-  ): ResponseBuilder = new ResponseBuilder {
+  def requestMatching[T](
+    requestMatch: PartialFunction[ChargePointReq, T]
+  ): ResponseBuilder[T] = new ResponseBuilder[T] {
 
-    def respondingWith(res: ChargePointRes): Unit = {
+    def respondingWith(resBuilder: T => ChargePointRes): T = {
         promisedMsg match {
           case IncomingRequest(msg, respond) =>
             if (requestMatch.isDefinedAt(msg)) {
-              respond(res)
-              ()
+              val matchResult = requestMatch.apply(msg)
+              respond(resBuilder(matchResult))
+              matchResult
             } else {
               core.fail(s"Expectation failed on $msg: not GetConfigurationReq")
             }
@@ -44,18 +45,18 @@ abstract class ExpectationBuilder(promisedMsg: IncomingMessage) {
     }
   }
 
-  def getConfigurationReq = requestMatching { case _: GetConfigurationReq => }
-  def changeConfigurationReq = requestMatching { case _: ChangeConfigurationReq => }
-  def getDiagnosticsReq = requestMatching { case _: GetDiagnosticsReq => }
-  def changeAvailabilityReq = requestMatching { case _: ChangeAvailabilityReq => }
-  def getLocalListVersionReq = requestMatching { case GetLocalListVersionReq => }
-  def sendLocalListReq = requestMatching { case _: SendLocalListReq => }
-  def clearCacheReq = requestMatching { case ClearCacheReq => }
-  def resetReq = requestMatching { case _: ResetReq => }
-  def updateFirmwareReq = requestMatching { case _: UpdateFirmwareReq => }
-  def remoteStartTransactionReq = requestMatching { case _: RemoteStartTransactionReq => }
-  def remoteStopTransactionReq = requestMatching { case _: RemoteStopTransactionReq => }
-  def reserveNowReq = requestMatching { case _: ReserveNowReq => }
-  def cancelReservationReq = requestMatching { case _: CancelReservationReq => }
-  def unlockConnectorReq = requestMatching { case _: UnlockConnectorReq => }
+  def getConfigurationReq = requestMatching { case r: GetConfigurationReq => r }
+  def changeConfigurationReq = requestMatching { case r: ChangeConfigurationReq => r }
+  def getDiagnosticsReq = requestMatching { case r: GetDiagnosticsReq => r }
+  def changeAvailabilityReq = requestMatching { case r: ChangeAvailabilityReq => r }
+  def getLocalListVersionReq = requestMatching { case r if r == GetLocalListVersionReq => r }
+  def sendLocalListReq = requestMatching { case r: SendLocalListReq => r }
+  def clearCacheReq = requestMatching { case r if r == ClearCacheReq => r }
+  def resetReq = requestMatching { case r: ResetReq => r }
+  def updateFirmwareReq = requestMatching { case r: UpdateFirmwareReq => r }
+  def remoteStartTransactionReq = requestMatching { case r: RemoteStartTransactionReq => r }
+  def remoteStopTransactionReq = requestMatching { case r: RemoteStopTransactionReq => r }
+  def reserveNowReq = requestMatching { case r: ReserveNowReq => r }
+  def cancelReservationReq = requestMatching { case r: CancelReservationReq => r }
+  def unlockConnectorReq = requestMatching { case r: UnlockConnectorReq => r }
 }
