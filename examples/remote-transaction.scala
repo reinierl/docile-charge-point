@@ -17,18 +17,16 @@ if (auth.status == AuthorizationStatus.Accepted) {
   println(s"Transaction started with ID $transId; awaiting remote stop")
 
   def waitForValidRemoteStop(): Unit = {
-    val stopReq = expectIncoming.remoteStopTransactionReq.respondingWith({ (req: RemoteStopTransactionReq) =>
-      RemoteStopTransactionRes {
-        // TODO duplicate check - we need a better way
-        req.transactionId == transId
-      }
-    })
+    val shouldStop =
+      expectIncoming
+        .requestMatching({case r: RemoteStopTransactionReq => r.transactionId == transId})
+        .respondingWith(RemoteStopTransactionRes(_))
 
-    if (stopReq.transactionId == transId) {
+    if (shouldStop) {
       println("Received RemoteStopTransaction request; stopping transaction")
       ()
     } else {
-      println(s"Received RemoteStopTransaction request for other transaction with ID ${stopReq.transactionId}. I'll keep waiting for a stop for $transId.")
+      println(s"Received RemoteStopTransaction request for other transaction with ID. I'll keep waiting for a stop for $transId.")
       waitForValidRemoteStop()
     }
   }
