@@ -55,6 +55,19 @@ class ReceivedMsgManagerSpec(implicit ee: ExecutionEnv) extends Specification {
 
       sut.currentQueueContents mustEqual List(testMsg(1), testMsg(2))
     }
+
+    "flush the queue" in new TestScope {
+      val sut = new ReceivedMsgManager
+
+      sut.enqueue(testMsg(1))
+      sut.enqueue(testMsg(2))
+
+      sut.currentQueueContents mustEqual List(testMsg(1), testMsg(2))
+
+      sut.flush()
+
+      sut.currentQueueContents must beEmpty
+    }
   }
 
   private trait TestScope extends Scope {

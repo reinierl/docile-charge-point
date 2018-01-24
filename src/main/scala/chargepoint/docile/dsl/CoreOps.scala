@@ -14,6 +14,18 @@ trait CoreOps extends StrictLogging {
 
   protected def connectionData: OcppConnectionData
 
+  /**
+   * Send an OCPP request to the Central System under test.
+   *
+   * This method works asynchronously. That means the method call returns immediately, and does not return the response.
+   *
+   * To get the response, await the incoming message using the awaitIncoming method defined below, or use the
+   * synchronous methods from the "shortsend" package.
+   *
+   * @param req
+   * @param reqRes
+   * @tparam Q
+   */
   def send[Q <: CentralSystemReq](req: Q)(implicit reqRes: CentralSystemReqRes[Q, _ <: CentralSystemRes]): Unit =
     connectionData.ocppClient match {
       case None =>
@@ -42,6 +54,14 @@ trait CoreOps extends StrictLogging {
       case Failure(e)                   => error(e)
     }
   }
+
+  /**
+   * Throw away all incoming messages that have not yet been awaited.
+   *
+   * This can be used in interactive mode to get out of a situation where you've received a bunch of messages that you
+   * don't really care about, and you want to get on with things.
+   */
+  def flushQ(): Unit = connectionData.receivedMsgManager.flush()
 
   def fail(message: String): Nothing = throw ExpectationFailed(message)
 

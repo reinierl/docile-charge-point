@@ -30,6 +30,8 @@ class ReceivedMsgManager extends StrictLogging {
       promise.future
   }
 
+  def flush(): Unit = messages.dequeueAll(_ => true)
+
   def currentQueueContents: List[IncomingMessage] = synchronized {
     messages.toList
   }
