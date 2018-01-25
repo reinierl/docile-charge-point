@@ -23,11 +23,11 @@ trait Runner extends StrictLogging {
 
 object Runner extends StrictLogging {
 
-  def interactive(config: RunnerConfig): Runner = new PredefinedCaseRunner(
+  def interactive: Runner = new PredefinedCaseRunner(
     Seq(TestCase("Interactive test", new InteractiveOcppTest))
   )
 
-  def forFiles(files: Seq[String], config: RunnerConfig): Runner =
+  def forFiles(files: Seq[String]): Runner =
     new PredefinedCaseRunner(files.map(loadFile))
 
   private def loadFile(f: String): TestCase = {
