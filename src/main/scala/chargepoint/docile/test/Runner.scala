@@ -4,6 +4,7 @@ package test
 import java.io.File
 import java.net.URI
 import scala.tools.reflect.ToolBox
+import scala.util.{Try, Success, Failure}
 import chargepoint.docile.dsl._
 import slogging.StrictLogging
 import com.thenewmotion.ocpp
@@ -16,19 +17,83 @@ case class RunnerConfig(
   repeat: RepeatMode
 )
 
-trait Runner extends StrictLogging {
+/**
+  * A runner runs a sequence of given test cases according to a certain configuration
+  *
+  * @param testCases The test cases to run
+  */
+class Runner(testCases: Seq[TestCase]) extends StrictLogging {
 
-  def run(runnerCfg: RunnerConfig): Seq[(String, TestResult)]
+  // How to do parallelism here...
+  //   - match first on the parallel n
+  //   - If multiple: call runParallel
+  //   runParallel will manage:
+  //     - starting multiple threads, that each:
+  //       - call runOnce from different threads
+  //       - print completion note??? Or return a Stream of those?
+  //           -> yeah let's return a Stream, also from the run() altogether
+  //     - watching for termination command
+  //     - use old school interrupt / join to wait for termination
+  def run(runnerCfg: RunnerConfig): Seq[(String, TestResult)] = runnerCfg.repeat match {
+    case RunOnce       => runOnce(testCases, runnerCfg)
+    case Repeat(pause) => runRepeat(testCases, runnerCfg, pauseMillis = pause)
+  }
+
+  private def runRepeat(testCases: Seq[TestCase], runnerCfg: RunnerConfig, pauseMillis: Int): Seq[(String, TestResult)] = {
+    println("Running in repeat mode. Press <ENTER> to stop.")
+    var res: Seq[(String, TestResult)] = Seq.empty
+
+    while (!(System.in.available() > 0)) {
+      res = runOnce(testCases, runnerCfg)
+      Thread.sleep(pauseMillis)
+    }
+
+    res
+  }
+
+  private def runOnce(testCases: Seq[TestCase], runnerCfg: RunnerConfig): Seq[(String, TestResult)] =
+    testCases map { testCase =>
+      runCase(runnerCfg, testCase)
+    }
+
+  private def runCase(runnerCfg: RunnerConfig, c: TestCase): (String, TestResult) = {
+    logger.debug(s"Going to connect ${c.name}")
+    c.test.connect(
+      new ReceivedMsgManager(),
+      runnerCfg.chargePointId,
+      runnerCfg.uri,
+      runnerCfg.ocppVersion,
+      runnerCfg.authKey
+    )
+
+    logger.info(s"Going to run ${c.name}")
+
+    val res = Try(c.test.run()) match {
+      case Success(_)                => TestPassed
+      case Failure(e: ScriptFailure) => TestFailed(e)
+      case Failure(e: Exception)     => TestFailed(ExecutionError(e))
+      case Failure(e)                => throw e
+    }
+
+    logger.debug(s"Test ${c.name} run; disconnecting...")
+
+    c.test.disconnect()
+
+    logger.debug(s"Disconnected OCPP connection for ${c.name}")
+
+    c.name -> res
+  }
 }
+
 
 object Runner extends StrictLogging {
 
-  def interactive: Runner = new PredefinedCaseRunner(
+  def interactive: Runner = new Runner(
     Seq(TestCase("Interactive test", new InteractiveOcppTest))
   )
 
   def forFiles(files: Seq[String]): Runner =
-    new PredefinedCaseRunner(files.map(loadFile))
+    new Runner(files.map(loadFile))
 
   private def loadFile(f: String): TestCase = {
 
