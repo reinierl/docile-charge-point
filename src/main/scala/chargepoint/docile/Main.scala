@@ -84,35 +84,27 @@ object Main extends App with StrictLogging {
   implicit val ec = concurrent.ExecutionContext.Implicits.global
 
 
-  conf.numberInParallel.toOption match {
-    case None | Some(1) =>
-      singleShotRun()
-    case Some(n) if n < 1 =>
-      println("Tssk, grapjas.")
-      sys.exit(1)
-    case Some(n) =>
-      parallelRun(conf.numberInParallel())
+  if (conf.numberInParallel.toOption.exists(_ < 1)) {
+    println("Tssk, grapjas.")
+    sys.exit(1)
   }
 
-  def singleShotRun(): Unit = {
+  val runnerCfg = runnerConfigWithChargePointId(conf.chargePointId())
 
-    val runnerCfg = runnerConfigWithChargePointId(conf.chargePointId())
+  val runner: Runner =
+    if (conf.interactive())
+      Runner.interactive
+    else
+      filesRunner()
 
-    val runner: Runner =
-      if (conf.interactive())
-        Runner.interactive
-      else
-        filesRunner()
-
-    Try(runner.run(runnerCfg)) match {
-      case Success(testsPassed) =>
-        val succeeded = summarizeResults(testsPassed)
-        sys.exit(if (succeeded) 0 else 1)
-      case Failure(e) =>
-        System.err.println(s"Could not run tests: ${e.getMessage}")
-        e.printStackTrace()
-        sys.exit(2)
-    }
+  Try(runner.run(runnerCfg)) match {
+    case Success(testsPassed) =>
+      val succeeded = summarizeResults(testsPassed)
+      sys.exit(if (succeeded) 0 else 1)
+    case Failure(e) =>
+      System.err.println(s"Could not run tests: ${e.getMessage}")
+      e.printStackTrace()
+      sys.exit(2)
   }
 
   private def summarizeResults(testResults: Seq[(String, TestResult)]): Boolean = {
