@@ -3,13 +3,18 @@ package test
 
 import java.io.File
 import java.net.URI
+
 import scala.tools.reflect.ToolBox
-import scala.util.{Try, Success, Failure}
+import scala.util.{Failure, Success, Try}
+import scala.concurrent.{Await, Future, Promise, duration}, duration.Duration
+import scala.concurrent.ExecutionContext.Implicits.global
 import chargepoint.docile.dsl._
 import slogging.StrictLogging
 import com.thenewmotion.ocpp
 
+
 case class RunnerConfig(
+  number: Int,
   chargePointId: String,
   uri: URI,
   ocppVersion: ocpp.Version,
@@ -34,27 +39,51 @@ class Runner(testCases: Seq[TestCase]) extends StrictLogging {
   //           -> yeah let's return a Stream, also from the run() altogether
   //     - watching for termination command
   //     - use old school interrupt / join to wait for termination
-  def run(runnerCfg: RunnerConfig): Seq[(String, TestResult)] = runnerCfg.repeat match {
-    case RunOnce       => runOnce(testCases, runnerCfg)
-    case Repeat(pause) => runRepeat(testCases, runnerCfg, pauseMillis = pause)
-  }
+  // return then:
+  //   Seq[        Traversable[   Map[String, TestResult]]]
+  //    ^ threads   ^ repeats      ^ cases
+  def run(runnerCfg: RunnerConfig): Seq[Traversable[Map[String, TestResult]]] =
+    if (runnerCfg.number > 1)
+      runMultiple(runnerCfg, runnerCfg.number)
+    else
+      List(runOne(runnerCfg))
 
-  private def runRepeat(testCases: Seq[TestCase], runnerCfg: RunnerConfig, pauseMillis: Int): Seq[(String, TestResult)] = {
-    println("Running in repeat mode. Press <ENTER> to stop.")
-    var res: Seq[(String, TestResult)] = Seq.empty
-
-    while (!(System.in.available() > 0)) {
-      res = runOnce(testCases, runnerCfg)
-      Thread.sleep(pauseMillis)
+  def runOne(runnerCfg: RunnerConfig): Traversable[Map[String, TestResult]] =
+    runnerCfg.repeat match {
+      case RunOnce => List(runOnce(testCases, runnerCfg))
+      case Repeat (pause) => runRepeat (testCases, runnerCfg, pauseMillis = pause)
     }
 
-    res
+  def runMultiple(runnerCfg: RunnerConfig, n: Int): Seq[Traversable[Map[String, TestResult]]] = {
+    val results = List.fill(n)(Promise[Traversable[Map[String, TestResult]]]())
+
+    1.to(n) foreach { i =>
+      val runnerConfig = runnerCfg.copy(chargePointId = runnerCfg.chargePointId.format(i))
+
+      new Thread {
+        override def run(): Unit = results(i-1t ).success(Runner.this.runOne(runnerConfig))
+      }.start()
+    }
+
+    Await.result(Future.sequence(results.map(_.future)), Duration.Inf).toSeq
   }
 
-  private def runOnce(testCases: Seq[TestCase], runnerCfg: RunnerConfig): Seq[(String, TestResult)] =
-    testCases map { testCase =>
-      runCase(runnerCfg, testCase)
+
+  private def runRepeat(testCases: Seq[TestCase], runnerCfg: RunnerConfig, pauseMillis: Int): Traversable[Map[String, TestResult]] =
+  new Traversable[Map[String, TestResult]] {
+    override def foreach[T](f: Map[String, TestResult] => T) = {
+
+      println("Running in repeat mode. Press <ENTER> to stop.")
+
+      while (!(System.in.available() > 0)) {
+        f(runOnce(testCases, runnerCfg))
+        Thread.sleep(pauseMillis)
+      }
     }
+  }
+
+  private def runOnce(testCases: Seq[TestCase], runnerCfg: RunnerConfig): Map[String, TestResult] =
+    testCases.map(testCase => runCase(runnerCfg, testCase)).toMap
 
   private def runCase(runnerCfg: RunnerConfig, c: TestCase): (String, TestResult) = {
     logger.debug(s"Going to connect ${c.name}")

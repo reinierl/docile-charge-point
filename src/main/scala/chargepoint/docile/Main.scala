@@ -39,7 +39,7 @@ object Main extends App with StrictLogging {
     )
 
     val numberInParallel = opt[Int](
-      default = None,
+      default = Some(1),
       descr = "Start given number of instances of the script at the same time (can be combined with --repeat)"
     )
 
@@ -89,7 +89,18 @@ object Main extends App with StrictLogging {
     sys.exit(1)
   }
 
-  val runnerCfg = runnerConfigWithChargePointId(conf.chargePointId())
+  val runnerCfg = RunnerConfig(
+    number = conf.numberInParallel(),
+    chargePointId = conf.chargePointId(),
+    uri = conf.uri(),
+    ocppVersion = conf.version(),
+    authKey = conf.authKey.toOption,
+    repeat =
+      if (conf.repeat())
+        Repeat(conf.repeatPause())
+      else
+        RunOnce
+  )
 
   val runner: Runner =
     if (conf.interactive())
@@ -107,9 +118,9 @@ object Main extends App with StrictLogging {
       sys.exit(2)
   }
 
-  private def summarizeResults(testResults: Seq[(String, TestResult)]): Boolean = {
+  private def summarizeResults(testResults: Seq[Traversable[Map[String, TestResult]]]): Boolean = {
 
-    val outcomes = testResults map { case (testName, outcome) =>
+    val outcomes = testResults.last.last map { case (testName, outcome) =>
 
       val outcomeDescription = outcome match {
         case TestFailed(ExpectationFailed(msg)) => s"❌  $msg"
@@ -127,22 +138,6 @@ object Main extends App with StrictLogging {
     outcomes.collect({ case TestFailed(_) => }).isEmpty
   }
 
-  // TODO we'll probably want to push parallel running deeper down into runnerland, because:
-  //  * aggregate reporting
-  //  * sane way to handle interaction (stopping the repeat, prompts)
-  //  * keeping connection open during repeat runs
-  def parallelRun(n: Int): Unit = {
-    val runner = filesRunner()
-
-    1.to(n) foreach { i =>
-      val runnerConfig = runnerConfigWithChargePointId(conf.chargePointId().format(i))
-
-      new Thread {
-        override def run(): Unit = runner.run(runnerConfig)
-      }.start()
-    }
-  }
-
   private def filesRunner(): Runner = {
     val files = conf.files.getOrElse {
       sys.error(
@@ -151,17 +146,4 @@ object Main extends App with StrictLogging {
     }
     Runner.forFiles(files)
   }
-
-  private def runnerConfigWithChargePointId(cpId: String): RunnerConfig =
-    RunnerConfig(
-      chargePointId = cpId,
-      uri = conf.uri(),
-      ocppVersion = conf.version(),
-      authKey = conf.authKey.toOption,
-      repeat =
-        if (conf.repeat())
-          Repeat(conf.repeatPause())
-        else
-          RunOnce
-    )
 }
