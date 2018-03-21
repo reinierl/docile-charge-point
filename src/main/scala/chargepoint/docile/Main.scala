@@ -102,6 +102,7 @@ object Main extends App with StrictLogging {
         RunOnce
   )
 
+  // TODO add config validation so we can't start 1000 concurrent interactive runners :)
   val runner: Runner =
     if (conf.interactive())
       Runner.interactive
@@ -118,25 +119,46 @@ object Main extends App with StrictLogging {
       sys.exit(2)
   }
 
-  private def summarizeResults(testResults: Seq[Traversable[Map[String, TestResult]]]): Boolean = {
+  // TODO: split and beautify
+  private def summarizeResults(testResults: Map[String, Seq[Map[String, TestResult]]]): Boolean = {
 
-    val outcomes = testResults.last.last map { case (testName, outcome) =>
+    val isSingleRun = testResults.size == 1 && testResults.toSeq.headOption.exists(_._2.size == 1)
+    if (isSingleRun) {
+      val outcomes = testResults.headOption.flatMap(_._2.headOption).getOrElse(Map.empty[String, TestResult]) map  { case (testName, outcome) =>
 
-      val outcomeDescription = outcome match {
-        case TestFailed(ExpectationFailed(msg)) => s"❌  $msg"
-        case TestFailed(ExecutionError(e)) => s"💥  ${e.getClass.getSimpleName} ${e.getMessage}"
-        case TestPassed => s"✅"
+        val outcomeDescription = outcome match {
+          case TestFailed(ExpectationFailed(msg)) => s"❌  $msg"
+          case TestFailed(ExecutionError(e)) => s"💥  ${e.getClass.getSimpleName} ${e.getMessage}"
+          case TestPassed => s"✅"
+        }
+
+        println(s"$testName: $outcomeDescription")
+
+        outcome
       }
 
-      println(s"$testName: $outcomeDescription")
+      outcomes.collect({ case TestFailed(_) => }).isEmpty
+    } else {
+      val countsPerChargePoint: Map[String, (Int, Int, Int)] = testResults.mapValues { runs =>
+        runs.foldLeft((0, 0, 0)) { case (counts, results) =>
+            val countsForRun = results.values.foldLeft((0,0,0)) {
+              case ((f, e, p), TestFailed(ExpectationFailed(_))) => (f+1, e  , p)
+              case ((f, e, p), TestFailed(ExecutionError(_))) =>    (f  , e+1, p)
+              case ((f, e, p), TestPassed) =>                       (f  , e  , p+1)
+            }
 
-      outcome
+          (counts._1 + countsForRun._1, counts._2 + countsForRun._2, counts._3 + countsForRun._3)
+        }
+      }
+
+      countsPerChargePoint foreach { case (chargePointId, counts) =>
+          println(s"$chargePointId: ${counts._1} failed / ${counts._2} errors / ${counts._3} passed")
+      }
+
+      !countsPerChargePoint.values.exists(c => c._1 != 0 || c._2 != 0)
     }
-
-    logger.debug("Finished testing, returning from runner")
-
-    outcomes.collect({ case TestFailed(_) => }).isEmpty
   }
+
 
   private def filesRunner(): Runner = {
     val files = conf.files.getOrElse {
