@@ -1,7 +1,6 @@
 package chargepoint.docile.dsl
 
 import java.net.URI
-
 import scala.concurrent.Promise
 import scala.concurrent.ExecutionContext.Implicits.global
 import chargepoint.docile.dsl.expectations.IncomingMessage
@@ -10,55 +9,65 @@ import com.thenewmotion.ocpp.json.api._
 import com.thenewmotion.ocpp.messages.{ChargePointReq, ChargePointRes}
 import slogging.StrictLogging
 
-abstract class OcppTest extends StrictLogging {
+trait OcppTest extends StrictLogging {
   protected var connectionData: OcppConnectionData = _
 
-  def connect(
+  def runConnected(
     receivedMsgManager: ReceivedMsgManager,
     chargerId: String,
     endpoint: URI,
     version: Version,
     authKey: Option[String]
   ): Unit = {
-    val ocppConnection = Some{
-      new OcppJsonClient(chargerId, endpoint, List(version), authKey) {
+    connect(receivedMsgManager, chargerId, endpoint, version, authKey)
+    run()
+    disconnect()
+  }
 
-        override def onDisconnect(): Unit = {
-          logger.debug(s"Disconnection confirmed by OCPP library")
-          connectionData = connectionData.copy(ocppClient = None)
-        }
+  private def connect(
+    receivedMsgManager: ReceivedMsgManager,
+    chargerId: String,
+    endpoint: URI,
+    version: Version,
+    authKey: Option[String]
+  ): Unit = {
+    val connection = new OcppJsonClient(chargerId, endpoint, List(version), authKey) {
 
-        override def onError(e: OcppError): Unit = {
-          logger.info(s"Received OCPP error: $e")
-        }
+      override def onDisconnect(): Unit = {
+        logger.debug(s"Disconnection confirmed by OCPP library")
+        connectionData = connectionData.copy(ocppClient = None)
+      }
 
-        override def requestHandler: ChargePointRequestHandler = {
-          (req: ChargePointReq) =>
-            logger.info(s"<< $req")
+      override def onError(e: OcppError): Unit = {
+        logger.info(s"Received OCPP error: $e")
+      }
 
-            val responsePromise = Promise[ChargePointRes]()
+      override def requestHandler: ChargePointRequestHandler = {
+        (req: ChargePointReq) =>
+          logger.info(s"<< $req")
 
-            def respond(res: ChargePointRes): Unit = {
-              logger.info(s">> $res")
-              responsePromise.success(res)
-              ()
-            }
+          val responsePromise = Promise[ChargePointRes]()
 
-            receivedMsgManager.enqueue(
-              IncomingMessage(req, respond)
-            )
+          def respond(res: ChargePointRes): Unit = {
+            logger.info(s">> $res")
+            responsePromise.success(res)
+            ()
+          }
 
-            responsePromise.future
-        }
+          receivedMsgManager.enqueue(
+            IncomingMessage(req, respond)
+          )
+
+          responsePromise.future
       }
     }
 
-    connectionData = OcppConnectionData(ocppConnection, receivedMsgManager, chargerId)
+    connectionData = OcppConnectionData(Some(connection), receivedMsgManager, chargerId)
   }
 
-  def disconnect(): Unit = connectionData.ocppClient.foreach(_.close())
+  private def disconnect(): Unit = connectionData.ocppClient.foreach(_.close())
 
-  def run(): Unit
+  protected def run(): Unit
 }
 
 case class OcppConnectionData(

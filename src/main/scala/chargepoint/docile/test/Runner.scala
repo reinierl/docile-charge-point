@@ -57,15 +57,20 @@ class Runner(testCases: Seq[TestCase]) extends StrictLogging {
   def runMultiple(runnerCfg: RunnerConfig, n: Int): Seq[Traversable[Map[String, TestResult]]] = {
     val results = List.fill(n)(Promise[Traversable[Map[String, TestResult]]]())
 
-    1.to(n) foreach { i =>
+    val testThreads = 1.to(n) map { i =>
       val runnerConfig = runnerCfg.copy(chargePointId = runnerCfg.chargePointId.format(i))
 
       new Thread {
-        override def run(): Unit = results(i-1t ).success(Runner.this.runOne(runnerConfig))
-      }.start()
+        override def run(): Unit = results(i-1).success(Runner.this.runOne(runnerConfig))
+      }
     }
 
-    Await.result(Future.sequence(results.map(_.future)), Duration.Inf).toSeq
+    testThreads.foreach(_.start())
+    System.err.println("Threads started")
+    testThreads.foreach(_.join(0))
+    System.err.println("Threads joined")
+
+    Await.result(Future.sequence(results.map(_.future)), Duration.Inf)
   }
 
 
@@ -86,18 +91,15 @@ class Runner(testCases: Seq[TestCase]) extends StrictLogging {
     testCases.map(testCase => runCase(runnerCfg, testCase)).toMap
 
   private def runCase(runnerCfg: RunnerConfig, c: TestCase): (String, TestResult) = {
-    logger.debug(s"Going to connect ${c.name}")
-    c.test.connect(
+    logger.info(s"Going to run ${c.name}")
+
+    val res = Try(c.test().runConnected(
       new ReceivedMsgManager(),
       runnerCfg.chargePointId,
       runnerCfg.uri,
       runnerCfg.ocppVersion,
       runnerCfg.authKey
-    )
-
-    logger.info(s"Going to run ${c.name}")
-
-    val res = Try(c.test.run()) match {
+    )) match {
       case Success(_)                => TestPassed
       case Failure(e: ScriptFailure) => TestFailed(e)
       case Failure(e: Exception)     => TestFailed(ExecutionError(e))
@@ -105,8 +107,6 @@ class Runner(testCases: Seq[TestCase]) extends StrictLogging {
     }
 
     logger.debug(s"Test ${c.name} run; disconnecting...")
-
-    c.test.disconnect()
 
     logger.debug(s"Disconnected OCPP connection for ${c.name}")
 
@@ -118,7 +118,7 @@ class Runner(testCases: Seq[TestCase]) extends StrictLogging {
 object Runner extends StrictLogging {
 
   def interactive: Runner = new Runner(
-    Seq(TestCase("Interactive test", new InteractiveOcppTest))
+    Seq(TestCase("Interactive test", () => new InteractiveOcppTest))
   )
 
   def forFiles(files: Seq[String]): Runner =
@@ -161,7 +161,7 @@ object Runner extends StrictLogging {
 
     logger.debug(s"Compiled $f")
 
-    TestCase(testName, compiledCode().asInstanceOf[OcppTest])
+    TestCase(testName, () => compiledCode().asInstanceOf[OcppTest])
   }
 }
 
