@@ -39,7 +39,7 @@ trait CoreOps extends StrictLogging {
               IncomingMessage(res)
             )
           case Failure(e) =>
-            logger.debug("Failed to get response to outgoing OCPP request")
+            logger.info(s"Failed to get response to outgoing OCPP request $req: ${e.getMessage}")
             // TODO handle this nicer; should be possible to write scripts expecting failure (without using catch ;-) )
             throw ExecutionError(e)
     }
