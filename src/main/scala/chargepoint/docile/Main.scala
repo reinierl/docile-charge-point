@@ -33,8 +33,15 @@ object Main extends App with StrictLogging {
       descr = "ChargePointIdentity to identify ourselves to the Central System"
     )
 
+    val indefinitely = toggle(
+      default = Some(false),
+      short = 'I',
+      descrYes = "Keep executing script until terminated"
+    )
+
     val interactive = toggle(
       default = Some(false),
+      short = 'i',
       descrYes = "Start REPL to enter and run a test interactively"
     )
 
@@ -43,14 +50,19 @@ object Main extends App with StrictLogging {
       descr = "Start given number of instances of the script at the same time (can be combined with --repeat)"
     )
 
-    val repeat = toggle(
-      default = Some(false),
-      descrYes = "Keep executing script until terminated"
+    val repeat = opt[Int](
+      default = Some(1),
+      descr = "Repeat execution of the scripts this number of times"
     )
 
     val repeatPause = opt[Int](
       default = Some(1000),
       descr = "Number of milliseconds to wait between repeat runs"
+    )
+
+    val untilSuccess = toggle(
+      default = Some(false),
+      descrYes = "Keep executing scripts until they all succeed"
     )
 
     val verbose = opt[Int](
@@ -66,6 +78,26 @@ object Main extends App with StrictLogging {
       required = false,
       descr = "files with test cases to load"
     )
+
+    def makesSense: Either[String, Unit] = {
+      val repeatModesSpecified =
+        List(
+          conf.indefinitely(),
+          conf.repeat.toOption.exists(_ > 1),
+          conf.untilSuccess()
+        ).filter(identity).size
+
+      val senseChecks = List(
+        "Tssk, grapjas" ->
+          conf.numberInParallel.toOption.exists(_ < 1),
+        "You can't combine -i and -n, sorry" ->
+          (conf.interactive() && conf.numberInParallel() > 1),
+        "You can only specify one of --indefinitely, --repeat and --until-success" ->
+          (repeatModesSpecified > 1)
+      )
+
+      senseChecks.filter(_._2).headOption.map(_._1).toLeft(())
+    }
 
     verify()
   }
@@ -83,16 +115,19 @@ object Main extends App with StrictLogging {
 
   implicit val ec = concurrent.ExecutionContext.Implicits.global
 
-
-  if (conf.numberInParallel.toOption.exists(_ < 1)) {
-    println("Tssk, grapjas.")
+  conf.makesSense.left.foreach { errMsg =>
+    println(errMsg)
     sys.exit(1)
   }
 
-  if (conf.interactive() && conf.numberInParallel() > 1) {
-    println("You can't combine -i and -n, sorry")
-    sys.exit(1)
-  }
+  val repeatMode =
+    if (conf.repeat() > 1)
+      Repeat(conf.repeat(), conf.repeatPause())
+    else if (conf.untilSuccess())
+      UntilSuccess(conf.repeatPause())
+    else if (conf.indefinitely())
+      Indefinitely(conf.repeatPause())
+    else RunOnce
 
   val runnerCfg = RunnerConfig(
     number = conf.numberInParallel(),
@@ -100,11 +135,7 @@ object Main extends App with StrictLogging {
     uri = conf.uri(),
     ocppVersion = conf.version(),
     authKey = conf.authKey.toOption,
-    repeat =
-      if (conf.repeat())
-        Repeat(conf.repeatPause())
-      else
-        RunOnce
+    repeat = repeatMode
   )
 
   val runner: Runner =

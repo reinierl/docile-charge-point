@@ -51,8 +51,8 @@ class Runner(testCases: Seq[TestCase]) extends StrictLogging {
 
   def runOneCase(runnerCfg: RunnerConfig): Seq[Map[String, TestResult]] =
     runnerCfg.repeat match {
-      case RunOnce => List(runOnce(testCases, runnerCfg))
-      case Repeat (pause) => runRepeat (testCases, runnerCfg, pauseMillis = pause)
+      case RunOnce                 => List(runOnce(testCases, runnerCfg))
+      case repeatMode: RunRepeated => runRepeat(testCases, runnerCfg, repeatMode)
     }
 
   def runMultipleCases(runnerCfg: RunnerConfig, n: Int): Map[String, Seq[Map[String, TestResult]]] = {
@@ -77,15 +77,33 @@ class Runner(testCases: Seq[TestCase]) extends StrictLogging {
     Await.result(Future.sequence(results.map(_.future)), Duration.Inf).toMap
   }
 
+  private def runRepeat(testCases: Seq[TestCase], runnerCfg: RunnerConfig, repeatMode: RunRepeated): Seq[Map[String, TestResult]] = {
+    val (shouldIStop, msg): ((Int, Boolean) => Boolean, String) = repeatMode match {
+      case Repeat(numberOfTimes, _) =>
+        ((n, _) => n >= numberOfTimes,
+         s"Running test case $numberOfTimes times"
+        )
+      case UntilSuccess(_) =>
+        ((_, isSuccess) => isSuccess,
+         "Running test case until it succeeds"
+        )
+      case Indefinitely(_) =>
+        ((_, _) => System.in.available() > 0,
+         "Running in indefinite repeat mode. Press <ENTER> to stop."
+        )
+    }
 
-  private def runRepeat(testCases: Seq[TestCase], runnerCfg: RunnerConfig, pauseMillis: Int): Seq[Map[String, TestResult]] = {
     val res = mutable.ArrayBuffer.empty[Map[String, TestResult]]
 
-    println("Running in repeat mode. Press <ENTER> to stop.")
+    println(msg)
 
-    while (!(System.in.available() > 0)) {
+    var i = 0
+
+    while (!shouldIStop(i, res.lastOption.exists(_.values.forall(_ == TestPassed)))) {
       res += runOnce(testCases, runnerCfg)
-      Thread.sleep(pauseMillis)
+      Thread.sleep(repeatMode.pause)
+
+      i += 1
     }
 
     res
