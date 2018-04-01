@@ -89,6 +89,11 @@ object Main extends App with StrictLogging {
     sys.exit(1)
   }
 
+  if (conf.interactive() && conf.numberInParallel() > 1) {
+    println("You can't combine -i and -n, sorry")
+    sys.exit(1)
+  }
+
   val runnerCfg = RunnerConfig(
     number = conf.numberInParallel(),
     chargePointId = conf.chargePointId(),
@@ -102,7 +107,6 @@ object Main extends App with StrictLogging {
         RunOnce
   )
 
-  // TODO add config validation so we can't start 1000 concurrent interactive runners :)
   val runner: Runner =
     if (conf.interactive())
       Runner.interactive
