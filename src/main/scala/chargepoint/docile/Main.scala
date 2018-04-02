@@ -154,46 +154,61 @@ object Main extends App with StrictLogging {
       sys.exit(2)
   }
 
-  // TODO: split and beautify
   private def summarizeResults(testResults: Map[String, Seq[Map[String, TestResult]]]): Boolean = {
 
+    // we do result formatting differently depending on whether we're doing a
+    // single run (one charge point, one pass through the test script), or if
+    // we're doing a complex one (multiple charge point and/or multiple repeats)
     val isSingleRun = testResults.size == 1 && testResults.toSeq.headOption.exists(_._2.size == 1)
     if (isSingleRun) {
-      val outcomes = testResults.headOption.flatMap(_._2.headOption).getOrElse(Map.empty[String, TestResult]) map  { case (testName, outcome) =>
+      val singleRunResult =
+        testResults
+          .headOption
+          .flatMap(_._2.headOption)
+          .getOrElse(Map.empty[String, TestResult])
 
-        val outcomeDescription = outcome match {
-          case TestFailed(ExpectationFailed(msg)) => s"❌  $msg"
-          case TestFailed(ExecutionError(e)) => s"💥  ${e.getClass.getSimpleName} ${e.getMessage}"
-          case TestPassed => s"✅"
-        }
-
-        println(s"$testName: $outcomeDescription")
-
-        outcome
-      }
-
-      outcomes.collect({ case TestFailed(_) => }).isEmpty
+      summarizeSingleRun(singleRunResult)
     } else {
-      val countsPerChargePoint: Map[String, (Int, Int, Int)] = testResults.mapValues { runs =>
-        runs.foldLeft((0, 0, 0)) { case (counts, results) =>
-            val countsForRun = results.values.foldLeft((0,0,0)) {
-              case ((f, e, p), TestFailed(ExpectationFailed(_))) => (f+1, e  , p)
-              case ((f, e, p), TestFailed(ExecutionError(_))) =>    (f  , e+1, p)
-              case ((f, e, p), TestPassed) =>                       (f  , e  , p+1)
-            }
-
-          (counts._1 + countsForRun._1, counts._2 + countsForRun._2, counts._3 + countsForRun._3)
-        }
-      }
-
-      countsPerChargePoint foreach { case (chargePointId, counts) =>
-          println(s"$chargePointId: ${counts._1} failed / ${counts._2} errors / ${counts._3} passed")
-      }
-
-      !countsPerChargePoint.values.exists(c => c._1 != 0 || c._2 != 0)
+      summarizeComplexRun(testResults)
     }
   }
 
+  private def summarizeSingleRun(testResults: Map[String, TestResult]): Boolean = {
+    val outcomes = testResults map  { case (testName, outcome) =>
+
+      val outcomeDescription = outcome match {
+        case TestFailed(ExpectationFailed(msg)) => s"❌  $msg"
+        case TestFailed(ExecutionError(e)) => s"💥  ${e.getClass.getSimpleName} ${e.getMessage}"
+        case TestPassed => s"✅"
+      }
+
+      println(s"$testName: $outcomeDescription")
+
+      outcome
+    }
+
+    outcomes.collect({ case TestFailed(_) => }).isEmpty
+  }
+
+  private def summarizeComplexRun(testResults: Map[String, Seq[Map[String, TestResult]]]): Boolean = {
+    val countsPerChargePoint: Map[String, (Int, Int, Int)] = testResults.mapValues { runs =>
+      runs.foldLeft((0, 0, 0)) { case (counts, results) =>
+          val countsForRun = results.values.foldLeft((0,0,0)) {
+            case ((f, e, p), TestFailed(ExpectationFailed(_))) => (f+1, e  , p)
+            case ((f, e, p), TestFailed(ExecutionError(_)))    => (f  , e+1, p)
+            case ((f, e, p), TestPassed)                       => (f  , e  , p+1)
+          }
+
+        (counts._1 + countsForRun._1, counts._2 + countsForRun._2, counts._3 + countsForRun._3)
+      }
+    }
+
+    countsPerChargePoint foreach { case (chargePointId, counts) =>
+        println(s"$chargePointId: ${counts._1} failed / ${counts._2} errors / ${counts._3} passed")
+    }
+
+    !countsPerChargePoint.values.exists(c => c._1 != 0 || c._2 != 0)
+  }
 
   private def filesRunner(): Runner = {
     val files = conf.files.getOrElse {

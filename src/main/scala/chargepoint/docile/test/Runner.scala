@@ -44,6 +44,9 @@ class Runner(testCases: Seq[TestCase]) extends StrictLogging {
     */
   def run(runnerCfg: RunnerConfig): Map[String, Seq[Map[String, TestResult]]] =
   // TODO create special type to return these things in a clearer way?
+  // or better yet, make it take a function that can fold the results of
+  // consecutive runs into an arbitrary result type. That should help with heap
+  // memory if someone wants to run it overnight for some reason.
     if (runnerCfg.number > 1)
       runMultipleCases(runnerCfg, runnerCfg.number)
     else
