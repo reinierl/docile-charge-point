@@ -179,18 +179,18 @@ Credentials file /Users/reinier/.ivy2/.credentials does not exist
 Packaging /Users/reinier/Documents/Programs/docile-charge-point/target/scala-2.11/docile-charge-point_2.11-0.1-SNAPSHOT.jar ...
 Done packaging.
 Running (fork) chargepoint.docile.Main -c 03000001 ws://test-chargenetwork.thenewmotion.com/ocppws examples/heartbeat.scala examples/do-a-transaction.scala
-[info, chargepoint.docile.test.Runner] Going to run heartbeat
-[info, __wrapper$1$6b6db14a7c5c4651bb2840d8777a8ab6.__wrapper$1$6b6db14a7c5c4651bb2840d8777a8ab6$$anon$1] >> HeartbeatReq
-[info, __wrapper$1$6b6db14a7c5c4651bb2840d8777a8ab6.__wrapper$1$6b6db14a7c5c4651bb2840d8777a8ab6$$anon$1] << HeartbeatRes(2018-04-02T20:38:13.342Z[UTC])
-[info, chargepoint.docile.test.Runner] Going to run do-a-transaction
-[info, __wrapper$1$85ecec491fbc4d4c953c61cb542bc817.__wrapper$1$85ecec491fbc4d4c953c61cb542bc817$$anon$1] >> AuthorizeReq(01234567)
-[info, __wrapper$1$85ecec491fbc4d4c953c61cb542bc817.__wrapper$1$85ecec491fbc4d4c953c61cb542bc817$$anon$1] << AuthorizeRes(IdTagInfo(IdTagInvalid,None,Some(01234567)))
+Going to run heartbeat
+>> HeartbeatReq
+<< HeartbeatRes(2018-04-02T20:38:13.342Z[UTC])
+Going to run do-a-transaction
+>> AuthorizeReq(01234567)
+<< AuthorizeRes(IdTagInfo(IdTagInvalid,None,Some(01234567)))
 heartbeat: ✅
 do-a-transaction: ❌  Not authorized
 ```
 
 So docile-charge-point will show that the heartbeat script passed, and the
-do-a-transaction script failed with the message "Not authorized". o
+do-a-transaction script failed with the message "Not authorized".
 
 Also, the command will return success (exit status 0) if all scripts passed, and
 failure (exit status 1) otherwise.
