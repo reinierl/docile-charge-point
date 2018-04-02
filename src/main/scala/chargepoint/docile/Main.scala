@@ -33,15 +33,13 @@ object Main extends App with StrictLogging {
       descr = "ChargePointIdentity to identify ourselves to the Central System"
     )
 
-    val indefinitely = toggle(
+    val forever = toggle(
       default = Some(false),
-      short = 'I',
       descrYes = "Keep executing script until terminated"
     )
 
     val interactive = toggle(
       default = Some(false),
-      short = 'i',
       descrYes = "Start REPL to enter and run a test interactively"
     )
 
@@ -82,7 +80,7 @@ object Main extends App with StrictLogging {
     def makesSense: Either[String, Unit] = {
       val repeatModesSpecified =
         List(
-          conf.indefinitely(),
+          conf.forever(),
           conf.repeat.toOption.exists(_ > 1),
           conf.untilSuccess()
         ).filter(identity).size
@@ -92,8 +90,10 @@ object Main extends App with StrictLogging {
           conf.numberInParallel.toOption.exists(_ < 1),
         "You can't combine -i and -n, sorry" ->
           (conf.interactive() && conf.numberInParallel() > 1),
-        "You can only specify one of --indefinitely, --repeat and --until-success" ->
-          (repeatModesSpecified > 1)
+        "You can only specify one of --forever, --repeat and --until-success" ->
+          (repeatModesSpecified > 1),
+        "You have to give files on the command-line for a non-interactive run" ->
+          (!conf.interactive() && !conf.files.toOption.exists(_.nonEmpty))
       )
 
       senseChecks.filter(_._2).headOption.map(_._1).toLeft(())
@@ -125,7 +125,7 @@ object Main extends App with StrictLogging {
       Repeat(conf.repeat(), conf.repeatPause())
     else if (conf.untilSuccess())
       UntilSuccess(conf.repeatPause())
-    else if (conf.indefinitely())
+    else if (conf.forever())
       Indefinitely(conf.repeatPause())
     else RunOnce
 
@@ -142,7 +142,7 @@ object Main extends App with StrictLogging {
     if (conf.interactive())
       Runner.interactive
     else
-      filesRunner()
+      Runner.forFiles(conf.files())
 
   Try(runner.run(runnerCfg)) match {
     case Success(testsPassed) =>
@@ -208,14 +208,5 @@ object Main extends App with StrictLogging {
     }
 
     !countsPerChargePoint.values.exists(c => c._1 != 0 || c._2 != 0)
-  }
-
-  private def filesRunner(): Runner = {
-    val files = conf.files.getOrElse {
-      sys.error(
-        "You have to give files on the command-line for a non-interactive run"
-      )
-    }
-    Runner.forFiles(files)
   }
 }
