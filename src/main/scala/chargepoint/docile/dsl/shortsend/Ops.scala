@@ -138,6 +138,6 @@ trait Ops {
   def sendSync[REQ <: CentralSystemReq, RES <: CentralSystemRes : ClassTag](req: REQ)
                                                                            (implicit reqRes: CentralSystemReqRes[REQ, RES]): RES = {
     self.send(req)
-    self.expectIncoming matching { case res: RES => res }
+    self.expectIncoming(matching { case res: RES => res })
   }
 }
