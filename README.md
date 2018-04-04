@@ -216,10 +216,10 @@ send(StatusNotificationReq(
   timestamp = Some(ZonedDateTime.now()),
   vendorId = None
 ))
-expectIncoming matching { case res@StatusNotificationRes => res }
+expectIncoming(matching { case res@StatusNotificationRes => res })
 ```
 
-So this `expectIncoming matching ...` line is in the end also an expression that
+So this `expectIncoming(matching ...)` line is in the end also an expression that
 returns the response that was just received.
 
 What `expectIncoming` does comes down to:
@@ -235,24 +235,34 @@ What `expectIncoming` does comes down to:
 In order to feed `expectIncoming`, docile-charge-point keeps a queue of messages
 that have been received. The `expectIncoming` call is always evaluated against
 the head of the queue. So you _have_ to expect every message the Central System
-sends to you, in order! This can sometimes be counterintuitive and I'm working
-on ways to make this easier to deal with, like making it possible to expect a
-bunch of messages at once in no particular order.
+sends to you, in the order in which they arrive!
 
-As a variant of the `expectIncoming matching ...` idiom, there is also an
+To make this order requirement easier to deal with, you can also expect
+multiple messages at once, and docile-charge-point will accept them no matter
+in which order they arrive:
+
+```
+expectInAnyOrder(
+  remoteStartTransactionReq.respondingWith(RemoteStartTransactionRes(true)),
+  changeConfigurationReq.respondingWith(ChangeConfigurationRes(ConfigurationStatus.Accepted))
+)
+```
+
+As a variant of the `expectIncoming(matching ...)` idiom, there is also an
 `expectIncoming requestMatching ...` variant, that lets you expect incoming
 requests from the Central System, and respond to them, like so:
 
 ```
-      expectIncoming
-        .requestMatching({case r: RemoteStopTransactionReq => r.transactionId == transId})
-        .respondingWith(RemoteStopTransactionRes(_))`
+      expectIncoming(
+        requestMatching({case r: RemoteStopTransactionReq => r.transactionId == transId})
+          .respondingWith(RemoteStopTransactionRes(_))
+      )
 ```
 
 This bit waits for an incoming StopTransaction request, and fails if the next
 incoming message is not a StopTransaction request. If it is, it returns whether
 the transaction ID in that message matches the `transId` value. Also, it
-responds to the Central System with a RemoteStopTransaction request.
+responds to the Central System with a RemoteStopTransaction response.
 
 The argument to `respondingWith` can either be a literal value, or it can be a
 function from the result of the partial function to a response. Here the latter
@@ -268,15 +278,16 @@ a shorthand for expecting an incoming request of a certain type, without caring
 more about the specific message contents. So this bit:
 
 ```
-expectIncoming.remoteStartTransactionReq.respondingWith(RemoteStartTransactionRes(true))
+expectIncoming(remoteStartTransactionReq.respondingWith(RemoteStartTransactionRes(true)))
 ```
 
 is equivalent to:
 
 ```
-expectIncoming
-  .requestMatching({case r: StartTransactionReq => r})
-  .respondingWith(RemoteStartTransactionRes(true))
+expectIncoming(
+  requestMatching({case r: StartTransactionReq => r})
+    .respondingWith(RemoteStartTransactionRes(true))
+)
 ```
 
 ## Interactive use
@@ -365,12 +376,6 @@ Note also that between those two requests, I used tab completion to look up the 
 ## TODOs
 
 It's far from finished now. The next steps I plan to develop:
-
- * Expectations over more than one message (expectAnyOf, expectInAnyOrder, expectEventually)
-
- * Extend the DSL with nicer expectation syntax
-
- * Make it able to simulate multiple charge points at once
 
  * Make it able to take both Central System and Charge Point roles
 

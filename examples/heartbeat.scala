@@ -1,2 +1,2 @@
 send(HeartbeatReq)
-expectIncoming matching { case HeartbeatRes(_) => }
+expectIncoming(matching { case HeartbeatRes(_) => })

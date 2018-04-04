@@ -1,7 +1,7 @@
 import com.thenewmotion.ocpp.messages._
 
 println("Waiting for remote start message")
-val startRequest = expectIncoming.remoteStartTransactionReq.respondingWith(RemoteStartTransactionRes(true))
+val startRequest = expectIncoming(remoteStartTransactionReq.respondingWith(RemoteStartTransactionRes(true)))
 val chargeTokenId = startRequest.idTag
 
 println("Received remote start, authorizing...")
@@ -18,9 +18,10 @@ if (auth.status == AuthorizationStatus.Accepted) {
 
   def waitForValidRemoteStop(): Unit = {
     val shouldStop =
-      expectIncoming
-        .requestMatching({case r: RemoteStopTransactionReq => r.transactionId == transId})
-        .respondingWith(RemoteStopTransactionRes(_))
+      expectIncoming(
+        requestMatching({case r: RemoteStopTransactionReq => r.transactionId == transId})
+          .respondingWith(RemoteStopTransactionRes(_))
+      )
 
     if (shouldStop) {
       println("Received RemoteStopTransaction request; stopping transaction")
