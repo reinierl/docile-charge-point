@@ -72,8 +72,13 @@ trait Ops {
       case _                       => false
     }
 
-    // TODO nicer protection against cast errors
-    def result(msg: IncomingMessage): T = requestMatch.apply(msg.asInstanceOf[IncomingRequest].req)
+    def result(msg: IncomingMessage): T = msg match {
+      case IncomingRequest(req, _) => requestMatch(req)
+      case _ => error(new RuntimeException(
+          "IncomingRequestProcessor encountered non-request in result" +
+          " method. The accepts method should have made this impossible."
+        ))
+    }
 
     def fireSideEffects(msg: IncomingMessage): Unit = ()
   }
