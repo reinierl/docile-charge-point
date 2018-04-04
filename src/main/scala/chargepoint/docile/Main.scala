@@ -177,9 +177,13 @@ object Main extends App with StrictLogging {
     val outcomes = testResults map  { case (testName, outcome) =>
 
       val outcomeDescription = outcome match {
-        case TestFailed(ExpectationFailed(msg)) => s"❌  $msg"
-        case TestFailed(ExecutionError(e)) => s"💥  ${e.getClass.getSimpleName} ${e.getMessage}"
-        case TestPassed => s"✅"
+        case TestFailed(ExpectationFailed(msg)) =>
+          s"❌  $msg"
+        case TestFailed(ExecutionError(e)) =>
+          s"💥  ${e.getClass.getSimpleName} ${e.getMessage}\n" +
+          s"\t${e.getStackTrace.mkString("\n\t")}"
+        case TestPassed =>
+          s"✅"
       }
 
       println(s"$testName: $outcomeDescription")
