@@ -377,11 +377,11 @@ Note also that between those two requests, I used tab completion to look up the 
 
 It's far from finished now. The next steps I plan to develop:
 
+ * More robust handling of connection closes and OCPP errors
+
  * Make it able to take both Central System and Charge Point roles
 
  * Nicer syntax for constructing OCPP messages to send or expect
-
- * support OCPP 1.6 TLS + Basic Auth
 
 ## Other ideas
 
