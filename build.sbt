@@ -1,12 +1,34 @@
+
+
 enablePlugins(OssLibPlugin)
 
-scalaVersion := tnm.ScalaVersion.prev
+lazy val commonSettings = Seq(
+  organization := "com.newmotion",
+  version := "0.0.1-SNAPSHOT",
+  scalaVersion := tnm.ScalaVersion.prev,
+  javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint")
+)
 
-name := "docile-charge-point"
+lazy val root = (project in file(".")).
+  settings(
+    commonSettings,
+    name := "docile-charge-point",
+    mainClass := Some("chargepoint.docile.Main"),
+    assemblyJarName in assembly := "docile.jar",
+    connectInput in run := true,
+    libraryDependencies ++= deps
+  )
 
-organization := "de.reinier"
-
-mainClass := Some("chargepoint.docile.Main")
+lazy val lambda = (project in file("aws-lambda")).
+  dependsOn(root).
+  settings(
+    commonSettings,
+    name := "lambda-docile-charge-point",
+    retrieveManaged := true,
+    libraryDependencies ++= deps,
+    mainClass := Some("chargepoint.docile.Lambda"),
+    assemblyJarName in assembly := "docile-lambda.jar"
+  )
 
 assemblyJarName in assembly := "docile.jar"
 
@@ -25,3 +47,4 @@ libraryDependencies ++= Seq(
 
   "org.specs2"            %% "specs2-core"      % "4.0.2"    % "test"
 )
+

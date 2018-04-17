@@ -163,7 +163,7 @@ object Main extends App with StrictLogging {
       sys.exit(2)
   }
 
-  private def summarizeResults(testResults: Map[String, Seq[Map[String, TestResult]]]): Boolean = {
+  def summarizeResults(testResults: Map[String, Seq[Map[String, TestResult]]]): Boolean = {
 
     // we do result formatting differently depending on whether we're doing a
     // single run (one charge point, one pass through the test script), or if

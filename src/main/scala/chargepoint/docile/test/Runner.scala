@@ -3,6 +3,7 @@ package test
 
 import java.io.File
 import java.net.URI
+import java.nio.charset.StandardCharsets
 
 import scala.tools.reflect.ToolBox
 import scala.util.{Failure, Success, Try}
@@ -153,14 +154,30 @@ object Runner extends StrictLogging {
   def forFiles(files: Seq[String]): Runner =
     new Runner(files.map(loadFile))
 
+  def forBytes(name:String, bytes:Array[Byte]):Runner =
+    new Runner(Seq(loadString(name, new String(bytes, StandardCharsets.UTF_8))))
+
+
+  private def loadString(name:String, txt: String): TestCase = {
+    parseAndCompile(name, txt)
+  }
+
+
   private def loadFile(f: String): TestCase = {
 
     val file = new File(f)
     val testNameRegex = "(?:.*/)?([^/]+?)(?:\\.[^.]*)?$".r
     val testName = f match {
       case testNameRegex(n) => n
-      case _                => f
+      case _ => f
     }
+    val fileContents = scala.io.Source.fromFile(file).getLines.mkString("\n")
+
+    parseAndCompile(testName, fileContents)
+  }
+
+
+  private def parseAndCompile(testName:String, fileContents:String) : TestCase = {
 
     import reflect.runtime.currentMirror
     val toolbox = currentMirror.mkToolBox()
@@ -183,17 +200,16 @@ object Runner extends StrictLogging {
                    |
                    |  def run() {
                    """.stripMargin
-    val appendix = ";\n  }\n}"
+  val appendix = ";\n  }\n}"
 
-    val fileContents = scala.io.Source.fromFile(file).getLines.mkString("\n")
 
     val fileAst = toolbox.parse(preamble + fileContents + appendix)
 
-    logger.debug(s"Parsed $f")
+    logger.debug(s"Parsed $testName")
 
     val compiledCode = toolbox.compile(fileAst)
 
-    logger.debug(s"Compiled $f")
+    logger.debug(s"Compiled $testName")
 
     TestCase(testName, () => compiledCode().asInstanceOf[OcppTest])
   }
