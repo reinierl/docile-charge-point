@@ -37,35 +37,30 @@ trait OcppTest extends MessageLogging {
 
     connectionLogger.info(s"Connecting to OCPP v${version.name} endpoint $endpoint")
 
-    val connection = new OcppJsonClient(chargerId, endpoint, List(version), authKey) {
+    val connection = OcppJsonClient(chargerId, endpoint, List(version), authKey) {
 
-      override def onDisconnect(): Unit = {
-        connectionLogger.info(s"Gracefully disconnected from endpoint $endpoint")
-        connectionData = connectionData.copy(ocppClient = None)
-      }
+      (req: ChargePointReq) =>
 
-      override def onError(e: OcppError): Unit = {
-        connectionLogger.error(s"OCPP error received: $e")
-      }
+        incomingLogger.info(s"$req")
 
-      override def requestHandler: ChargePointRequestHandler = {
-        (req: ChargePointReq) =>
-          incomingLogger.info(s"$req")
+        val responsePromise = Promise[ChargePointRes]()
 
-          val responsePromise = Promise[ChargePointRes]()
+        def respond(res: ChargePointRes): Unit = {
+          outgoingLogger.info(s"$res")
+          responsePromise.success(res)
+          ()
+        }
 
-          def respond(res: ChargePointRes): Unit = {
-            outgoingLogger.info(s"$res")
-            responsePromise.success(res)
-            ()
-          }
+        receivedMsgManager.enqueue(
+          IncomingMessage(req, respond)
+        )
 
-          receivedMsgManager.enqueue(
-            IncomingMessage(req, respond)
-          )
+        responsePromise.future
+    }
 
-          responsePromise.future
-      }
+    connection.onClose.foreach { _ =>
+      connectionLogger.info(s"Gracefully disconnected from endpoint $endpoint")
+      connectionData = connectionData.copy(ocppClient = None)
     }
 
     connectionData = OcppConnectionData(Some(connection), receivedMsgManager, chargerId)

@@ -14,7 +14,7 @@ connectInput in run := true
 
 libraryDependencies ++= Seq(
   "com.lihaoyi"            % "ammonite"         % "1.0.3"    cross CrossVersion.full,
-  "com.thenewmotion.ocpp" %% "ocpp-j-api"       % "6.0.3",
+  "com.thenewmotion.ocpp" %% "ocpp-j-api"       % "7.0.0-SNAPSHOT",
   "org.rogach"            %% "scallop"          % "3.1.1",
   "org.scala-lang"         % "scala-compiler"   % "2.11.11",
 
