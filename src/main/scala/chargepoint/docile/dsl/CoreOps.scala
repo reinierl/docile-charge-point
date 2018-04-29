@@ -7,6 +7,7 @@ import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success, Try}
 import com.thenewmotion.ocpp.messages.{CentralSystemReq, CentralSystemReqRes, CentralSystemRes}
+import com.thenewmotion.ocpp.json.api.OcppException
 import expectations.IncomingMessage
 
 trait CoreOps extends OpsLogging with MessageLogging {
@@ -37,8 +38,13 @@ trait CoreOps extends OpsLogging with MessageLogging {
             connectionData.receivedMsgManager.enqueue(
               IncomingMessage(res)
             )
+          case Failure(OcppException(ocppError)) =>
+            incomingLogger.info(s"$ocppError")
+            connectionData.receivedMsgManager.enqueue(
+              IncomingMessage(ocppError)
+            )
           case Failure(e) =>
-            opsLogger.error(s"Failed to get response to outgoing OCPP request $req: ${e.getMessage}")
+            opsLogger.error(s"Failed to get response to outgoing OCPP request $req: ${e.getMessage}\n\t${e.getStackTrace.mkString("\n\t")}")
             // TODO handle this nicer; should be possible to write scripts expecting failure (without using catch ;-) )
             throw ExecutionError(e)
     }
