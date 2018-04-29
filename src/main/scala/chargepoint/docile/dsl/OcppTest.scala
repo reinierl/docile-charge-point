@@ -2,7 +2,8 @@ package chargepoint.docile.dsl
 
 import java.net.URI
 
-import scala.concurrent.Promise
+import scala.concurrent.{Await, Promise}
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.ExecutionContext.Implicits.global
 import chargepoint.docile.dsl.expectations.IncomingMessage
 import com.thenewmotion.ocpp.Version
@@ -66,7 +67,9 @@ trait OcppTest extends MessageLogging {
     connectionData = OcppConnectionData(Some(connection), receivedMsgManager, chargerId)
   }
 
-  private def disconnect(): Unit = connectionData.ocppClient.foreach(_.close())
+  private def disconnect(): Unit = connectionData.ocppClient.foreach { conn =>
+    Await.result(conn.close(), 45.seconds)
+  }
 
   protected def run(): Unit
 }
