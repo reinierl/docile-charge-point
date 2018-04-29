@@ -3,6 +3,7 @@ package test
 
 import java.io.File
 import java.net.URI
+
 import scala.tools.reflect.ToolBox
 import scala.util.{Failure, Success, Try}
 import scala.collection.mutable
@@ -10,7 +11,7 @@ import scala.concurrent.{Await, Future, Promise, duration}
 import duration.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
 import chargepoint.docile.dsl._
-import slogging.StrictLogging
+import slogging.{LoggerFactory, StrictLogging}
 import com.thenewmotion.ocpp
 
 case class RunnerConfig(
@@ -28,6 +29,8 @@ case class RunnerConfig(
   * @param testCases The test cases to run
   */
 class Runner(testCases: Seq[TestCase]) extends StrictLogging {
+
+  override protected val logger = LoggerFactory.getLogger("runner")
 
   /**
     * Run the test cases in this runner according to the given configuration
@@ -140,6 +143,8 @@ class Runner(testCases: Seq[TestCase]) extends StrictLogging {
 
 
 object Runner extends StrictLogging {
+
+  override protected val logger = LoggerFactory.getLogger("runner")
 
   def interactive: Runner = new Runner(
     Seq(TestCase("Interactive test", () => new InteractiveOcppTest))
