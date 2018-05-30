@@ -3,6 +3,8 @@ package test
 
 import java.io.File
 import java.net.URI
+import java.nio.charset.StandardCharsets
+
 import scala.tools.reflect.ToolBox
 import scala.util.{Failure, Success, Try}
 import scala.collection.mutable
@@ -10,7 +12,7 @@ import scala.concurrent.{Await, Future, Promise, duration}
 import duration.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
 import chargepoint.docile.dsl._
-import slogging.StrictLogging
+import slogging.{LoggerFactory, StrictLogging}
 import com.thenewmotion.ocpp
 
 case class RunnerConfig(
@@ -28,6 +30,8 @@ case class RunnerConfig(
   * @param testCases The test cases to run
   */
 class Runner(testCases: Seq[TestCase]) extends StrictLogging {
+
+  override protected val logger = LoggerFactory.getLogger("runner")
 
   /**
     * Run the test cases in this runner according to the given configuration
@@ -132,7 +136,6 @@ class Runner(testCases: Seq[TestCase]) extends StrictLogging {
     }
 
     logger.debug(s"Test ${c.name} run; disconnecting...")
-
     logger.debug(s"Disconnected OCPP connection for ${runnerCfg.chargePointId}/${c.name}")
 
     c.name -> res
@@ -142,6 +145,8 @@ class Runner(testCases: Seq[TestCase]) extends StrictLogging {
 
 object Runner extends StrictLogging {
 
+  override protected val logger = LoggerFactory.getLogger("runner")
+
   def interactive: Runner = new Runner(
     Seq(TestCase("Interactive test", () => new InteractiveOcppTest))
   )
@@ -149,42 +154,62 @@ object Runner extends StrictLogging {
   def forFiles(files: Seq[String]): Runner =
     new Runner(files.map(loadFile))
 
+  def forBytes(name:String, bytes:Array[Byte]):Runner =
+    new Runner(Seq(loadString(name, new String(bytes, StandardCharsets.UTF_8))))
+
+
+  private def loadString(name:String, txt: String): TestCase = {
+    parseAndCompile(name, txt)
+  }
+
+
   private def loadFile(f: String): TestCase = {
 
     val file = new File(f)
     val testNameRegex = "(?:.*/)?([^/]+?)(?:\\.[^.]*)?$".r
     val testName = f match {
       case testNameRegex(n) => n
-      case _                => f
+      case _ => f
     }
+    val fileContents = scala.io.Source.fromFile(file).getLines.mkString("\n")
+
+    parseAndCompile(testName, fileContents)
+  }
+
+
+  private def parseAndCompile(testName:String, fileContents:String) : TestCase = {
 
     import reflect.runtime.currentMirror
     val toolbox = currentMirror.mkToolBox()
 
     val preamble = s"""
+                   |import com.thenewmotion.ocpp.messages._
+                   |
                    |import scala.language.postfixOps
                    |import scala.concurrent.duration._
                    |import java.time._
-                   |import com.thenewmotion.ocpp.messages._
+                   |import slogging.{LoggerFactory, StrictLogging}
                    |
                    |new chargepoint.docile.dsl.OcppTest
                    |  with chargepoint.docile.dsl.CoreOps
                    |  with chargepoint.docile.dsl.expectations.Ops
-                   |  with chargepoint.docile.dsl.shortsend.Ops {
+                   |  with chargepoint.docile.dsl.shortsend.Ops
+                   |  with StrictLogging {
+                   |
+                   |  override val logger = LoggerFactory.getLogger("script")
                    |
                    |  def run() {
                    """.stripMargin
-    val appendix = ";\n  }\n}"
+  val appendix = ";\n  }\n}"
 
-    val fileContents = scala.io.Source.fromFile(file).getLines.mkString("\n")
 
     val fileAst = toolbox.parse(preamble + fileContents + appendix)
 
-    logger.debug(s"Parsed $f")
+    logger.debug(s"Parsed $testName")
 
     val compiledCode = toolbox.compile(fileAst)
 
-    logger.debug(s"Compiled $f")
+    logger.debug(s"Compiled $testName")
 
     TestCase(testName, () => compiledCode().asInstanceOf[OcppTest])
   }
