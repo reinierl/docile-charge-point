@@ -16,6 +16,11 @@ object Lambda extends App {
 
   import scala.collection.JavaConverters._
 
+  lazy val cpId = sys.env("cpId")
+  lazy val cpUri = new URI(sys.env("cpUri"))
+  lazy val cpVersion = sys.env("cpVersion")
+  lazy val cpAuthKey = sys.env.get("cpAuthKey")
+
   case class Script(name:String, content:Array[Byte])
 
   def getScriptFromS3(event: S3Event):Option[Script] =
@@ -31,19 +36,17 @@ object Lambda extends App {
     })
 
   def executeScript(script:Script): Option[String] = {
-    val cpId = sys.env("cpId")
-    val cpUri = new URI(sys.env("cpUri"))
     val runnerCfg = RunnerConfig(
       number = 1,
       chargePointId = cpId,
       uri = cpUri,
-      ocppVersion = Version.withName(sys.env("cpVersion")).getOrElse(Version.V15),
-      authKey = sys.env.get("cpAuthKey"),
+      ocppVersion = Version.withName(cpVersion).getOrElse(Version.V15),
+      authKey = cpAuthKey,
       repeat = RunOnce
     )
 
     println(s"executing ${script.name} as $cpId on $cpUri")
-    val runner:Runner = Runner.forBytes(script.name, script.content)
+    val runner: Runner = Runner.forBytes(script.name, script.content)
 
 
     Try(runner.run(runnerCfg)) match {
