@@ -2,6 +2,8 @@ enablePlugins(OssLibPlugin)
 
 scalaVersion := tnm.ScalaVersion.prev
 
+crossScalaVersions := Seq(tnm.ScalaVersion.prev)
+
 name := "docile-charge-point"
 
 organization := "de.reinier"
