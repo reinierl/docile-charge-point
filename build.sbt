@@ -25,7 +25,7 @@ lazy val lambda = (project in file("aws-lambda")).
     commonSettings,
     name := "lambda-docile-charge-point",
     retrieveManaged := true,
-    libraryDependencies ++= deps,
+    libraryDependencies ++= (deps ++ awsDeps),
     mainClass := Some("chargepoint.docile.Lambda"),
     assemblyJarName in assembly := "docile-lambda.jar"
   )
@@ -34,7 +34,15 @@ assemblyJarName in assembly := "docile.jar"
 
 connectInput in run := true
 
-libraryDependencies ++= Seq(
+
+lazy val awsDeps = Seq(
+  "com.amazonaws" % "aws-java-sdk-s3" % "1.11.337",
+  "com.amazonaws" % "aws-java-sdk-lambda" % "1.11.337",
+  "com.amazonaws" % "aws-lambda-java-core" % "1.2.0",
+  "com.amazonaws" % "aws-lambda-java-events" % "1.2.0"
+)
+
+lazy val deps = Seq(
   "com.lihaoyi"            % "ammonite"         % "1.0.3"    cross CrossVersion.full,
   "com.thenewmotion.ocpp" %% "ocpp-j-api"       % "7.0.0",
   "org.rogach"            %% "scallop"          % "3.1.1",

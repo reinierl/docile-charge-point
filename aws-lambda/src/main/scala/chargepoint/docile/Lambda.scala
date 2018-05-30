@@ -6,7 +6,7 @@ import chargepoint.docile.test.{RunOnce, Runner, RunnerConfig}
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain
 import com.amazonaws.services.lambda.runtime.Context
 import com.amazonaws.services.lambda.runtime.events.S3Event
-import com.amazonaws.services.s3.AmazonS3Client
+import com.amazonaws.services.s3.AmazonS3ClientBuilder
 import com.amazonaws.services.s3.model.GetObjectRequest
 import com.thenewmotion.ocpp.Version
 
@@ -27,7 +27,7 @@ object Lambda extends App {
     event.getRecords.asScala.headOption.map(r => {
       val key = r.getS3.getObject.getKey
       val bucket = r.getS3.getBucket.getName
-      val s3Client = new AmazonS3Client(new DefaultAWSCredentialsProviderChain)
+      val s3Client = AmazonS3ClientBuilder.standard().withCredentials(new DefaultAWSCredentialsProviderChain).build()
       val s3Object = s3Client.getObject(new GetObjectRequest(bucket, key))
       val objectData = s3Object.getObjectContent
       val content = Stream.continually(objectData.read).takeWhile(_ != -1).map(_.toByte).toArray
