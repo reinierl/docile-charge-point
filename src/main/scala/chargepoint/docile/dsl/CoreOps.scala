@@ -51,7 +51,6 @@ trait CoreOps extends OpsLogging with MessageLogging {
             )
           case Failure(e) =>
             opsLogger.error(s"Failed to get response to outgoing OCPP request $req: ${e.getMessage}\n\t${e.getStackTrace.mkString("\n\t")}")
-            // TODO handle this nicer; should be possible to write scripts expecting failure (without using catch ;-) )
             throw ExecutionError(e)
     }
   }
