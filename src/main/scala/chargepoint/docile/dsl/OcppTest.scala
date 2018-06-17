@@ -15,6 +15,13 @@ import org.slf4j.LoggerFactory
 trait OcppTest extends MessageLogging {
   private val connectionLogger = Logger(LoggerFactory.getLogger("connection"))
 
+  /**
+    * The current OCPP with some associated data
+    *
+    * This is a var instead of a val an immutable because I hope this will allow
+    * us to write tests that disconnect and reconnect when we have a more
+    * complete test DSL.
+    */
   protected var connectionData: OcppConnectionData = _
 
   def runConnected(
@@ -77,13 +84,6 @@ trait OcppTest extends MessageLogging {
 }
 
 case class OcppConnectionData(
-  /**
-    * The current OCPP connection
-    *
-    * This is a mutable Option[OcppJsonClient] instead of an immutable
-    * OcppJsonClient because I hope this will allow us to write tests that
-    * disconnect and reconnect when we have a more complete test DSL.
-    */
   ocppClient: Option[OcppJsonClient],
   receivedMsgManager: ReceivedMsgManager,
   chargePointIdentity: String
