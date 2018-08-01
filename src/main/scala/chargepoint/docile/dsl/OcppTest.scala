@@ -9,6 +9,7 @@ import com.thenewmotion.ocpp.Version
 import com.thenewmotion.ocpp.json.api._
 import com.thenewmotion.ocpp.messages.{ChargePointReq, ChargePointRes}
 import com.typesafe.scalalogging.Logger
+import javax.net.ssl.SSLContext
 import org.slf4j.LoggerFactory
 
 
@@ -29,9 +30,15 @@ trait OcppTest extends MessageLogging {
     chargerId: String,
     endpoint: URI,
     version: Version,
-    authKey: Option[String]
+    authKey: Option[String],
+    keystoreFile: Option[String],
+    keystorePassword: Option[String]
   ): Unit = {
-    connect(receivedMsgManager, chargerId, endpoint, version, authKey)
+    connect(receivedMsgManager, chargerId, endpoint, version, authKey)(
+      keystoreFile.fold(SSLContext.getDefault) { file =>
+        SslContext(file, keystorePassword.getOrElse(""))
+      }
+    )
     run()
     disconnect()
   }
@@ -42,7 +49,7 @@ trait OcppTest extends MessageLogging {
     endpoint: URI,
     version: Version,
     authKey: Option[String]
-  ): Unit = {
+  )(implicit sslContext: SSLContext): Unit = {
 
     implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.global
 

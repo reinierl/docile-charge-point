@@ -33,6 +33,17 @@ object Main extends App with StrictLogging {
       descr = "Authorization key to use for Basic Auth (hex-encoded, 40 characters)"
     )
 
+    val keystoreFile = opt[String](
+      default = None,
+      descr = "Keystore file for ssl (e.g: ./keystore.jks)"
+    )
+
+    val keystorePassword = opt[String](
+      default = None,
+      short = 'p',
+      descr = "Keystore password to unlock the keystore file"
+    )
+
     val chargePointId = opt[String](
       default = Some("03000001"),
       descr = "ChargePointIdentity to identify ourselves to the Central System"
@@ -143,6 +154,8 @@ object Main extends App with StrictLogging {
     uri = conf.uri(),
     ocppVersion = conf.version(),
     authKey = conf.authKey.toOption,
+    keystoreFile = conf.keystoreFile.toOption,
+    keystorePassword = conf.keystorePassword.toOption,
     repeat = repeatMode
   )
 

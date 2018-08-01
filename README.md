@@ -36,6 +36,7 @@ so e.g.:
 
 ```
 sbt 'run -c chargepoint0123 -v 1.6 ws://example.org/ocpp-j-endpoint examples/heartbeat.scala'
+sbt 'run -c chargepoint4567 -v 1.6 -i -a abcdef1234abcdef1234abcdef1234abcdef1234 -k /path/to/keystore.jks -p mypass wss://example.org/ocpp-j-endpoint'
 ```
 
 See `sbt 'run --help'` for more options.

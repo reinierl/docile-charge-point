@@ -49,10 +49,10 @@ object InteractiveOcppTest {
 
     protected def connectionData: OcppConnectionData
 
-    def q: Unit =
+    def q(): Unit =
       connectionData.receivedMsgManager.currentQueueContents foreach println
 
-    def whoami: Unit =
+    def whoami(): Unit =
       println(connectionData.chargePointIdentity)
   }
 }

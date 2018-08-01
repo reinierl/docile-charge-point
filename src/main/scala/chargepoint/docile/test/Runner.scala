@@ -7,7 +7,7 @@ import java.net.URI
 import scala.tools.reflect.ToolBox
 import scala.util.{Failure, Success, Try}
 import scala.collection.mutable
-import scala.concurrent.{Await, Future, Promise, duration}
+import scala.concurrent.{duration, Await, Future, Promise}
 import duration.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
 import chargepoint.docile.dsl._
@@ -21,6 +21,8 @@ case class RunnerConfig(
   uri: URI,
   ocppVersion: ocpp.Version,
   authKey: Option[String],
+  keystoreFile: Option[String],
+  keystorePassword: Option[String],
   repeat: RepeatMode
 )
 
@@ -72,6 +74,7 @@ class Runner(testCases: Seq[TestCase]) {
         override def run(): Unit = {
           val resultsForChargePoint = runnerConfig.chargePointId -> Runner.this.runOneCase(runnerConfig)
           results(i - 1).success(resultsForChargePoint)
+          ()
         }
       }
     }
@@ -127,7 +130,9 @@ class Runner(testCases: Seq[TestCase]) {
       runnerCfg.chargePointId,
       runnerCfg.uri,
       runnerCfg.ocppVersion,
-      runnerCfg.authKey
+      runnerCfg.authKey,
+      runnerCfg.keystoreFile,
+      runnerCfg.keystorePassword
     )) match {
       case Success(_)                => TestPassed
       case Failure(e: ScriptFailure) => TestFailed(e)
