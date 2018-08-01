@@ -1,3 +1,5 @@
+The main page of it has moved to [https://github.com/NewMotion/docile-charge-point/](https://github.com/NewMotion/docile-charge-point/).
+
 # docile-charge-point
 
 A scriptable [OCPP](http://openchargealliance.org/protocols/ocpp/ocpp-16/) charge point simulator.
@@ -389,5 +391,3 @@ It's far from finished now. The next steps I plan to develop:
  * Web interface: click together test: 150 CPs behaving like this, 300 like that, ..., GO!
 
  * Live demo on the web?
-
-
