@@ -19,10 +19,19 @@ class InteractiveOcppTest extends OcppTest {
       """
         |import ops._
         |import promptCommands._
+        |import com.thenewmotion.ocpp.messages._
+        |
         |import scala.language.postfixOps
         |import scala.concurrent.duration._
+        |import scala.util.Random
         |import java.time._
-        |import com.thenewmotion.ocpp.messages._
+        |
+        |import chargepoint.docile.dsl.AwaitTimeout
+        |import chargepoint.docile.dsl.Randomized._
+        |
+        |implicit val rand: Random = new Random()
+        |implicit val awaitTimeout: AwaitTimeout = AwaitTimeout(45.seconds)
+        |
       """.stripMargin
 
     ammonite.Main(predefCode = imports).run(
@@ -40,10 +49,10 @@ object InteractiveOcppTest {
 
     protected def connectionData: OcppConnectionData
 
-    def q: Unit =
+    def q(): Unit =
       connectionData.receivedMsgManager.currentQueueContents foreach println
 
-    def whoami: Unit =
+    def whoami(): Unit =
       println(connectionData.chargePointIdentity)
   }
 }

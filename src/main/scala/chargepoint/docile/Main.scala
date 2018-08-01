@@ -2,12 +2,17 @@ package chargepoint.docile
 
 import java.net.URI
 
+import ch.qos.logback.classic.{Level, Logger}
+
 import scala.util.{Failure, Success, Try}
 import chargepoint.docile.dsl.{ExecutionError, ExpectationFailed}
 import com.thenewmotion.ocpp.Version
+import com.typesafe.scalalogging.StrictLogging
 import org.rogach.scallop._
-import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory, StrictLogging}
+import org.slf4j.LoggerFactory
 import test._
+
+import scala.concurrent.ExecutionContextExecutor
 
 object Main extends App with StrictLogging {
 
@@ -26,6 +31,17 @@ object Main extends App with StrictLogging {
 
     val authKey = opt[String](
       descr = "Authorization key to use for Basic Auth (hex-encoded, 40 characters)"
+    )
+
+    val keystoreFile = opt[String](
+      default = None,
+      descr = "Keystore file for ssl (e.g: ./keystore.jks)"
+    )
+
+    val keystorePassword = opt[String](
+      default = None,
+      short = 'p',
+      descr = "Keystore password to unlock the keystore file"
     )
 
     val chargePointId = opt[String](
@@ -102,21 +118,24 @@ object Main extends App with StrictLogging {
     verify()
   }
 
-  LoggerConfig.factory = PrintLoggerFactory()
-  LoggerConfig.level = conf.verbose() match {
-    case 0 => LogLevel.OFF
-    case 1 => LogLevel.ERROR
-    case 2 => LogLevel.WARN
-    case 3 => LogLevel.INFO
-    case 4 => LogLevel.DEBUG
-    case 5 => LogLevel.TRACE
+  val rootLogger = LoggerFactory.getLogger("ROOT").asInstanceOf[Logger]
+
+  val rootLogLevel = conf.verbose() match {
+    case 0 => Level.OFF
+    case 1 => Level.ERROR
+    case 2 => Level.WARN
+    case 3 => Level.INFO
+    case 4 => Level.DEBUG
+    case 5 => Level.TRACE
     case _ => sys.error("Invalid verbosity, should be 0, 1, 2, 3, 4 or 5")
   }
 
-  implicit val ec = concurrent.ExecutionContext.Implicits.global
+  rootLogger.setLevel(rootLogLevel)
+
+  implicit val ec: ExecutionContextExecutor = concurrent.ExecutionContext.Implicits.global
 
   conf.makesSense.left.foreach { errMsg =>
-    println(errMsg)
+    logger.error(errMsg)
     sys.exit(1)
   }
 
@@ -135,6 +154,8 @@ object Main extends App with StrictLogging {
     uri = conf.uri(),
     ocppVersion = conf.version(),
     authKey = conf.authKey.toOption,
+    keystoreFile = conf.keystoreFile.toOption,
+    keystorePassword = conf.keystorePassword.toOption,
     repeat = repeatMode
   )
 
@@ -177,9 +198,13 @@ object Main extends App with StrictLogging {
     val outcomes = testResults map  { case (testName, outcome) =>
 
       val outcomeDescription = outcome match {
-        case TestFailed(ExpectationFailed(msg)) => s"❌  $msg"
-        case TestFailed(ExecutionError(e)) => s"💥  ${e.getClass.getSimpleName} ${e.getMessage}"
-        case TestPassed => s"✅"
+        case TestFailed(ExpectationFailed(msg)) =>
+          s"❌  $msg"
+        case TestFailed(ExecutionError(e)) =>
+          s"💥  ${e.getClass.getSimpleName} ${e.getMessage}\n" +
+          s"\t${e.getStackTrace.mkString("\n\t")}"
+        case TestPassed =>
+          s"✅"
       }
 
       println(s"$testName: $outcomeDescription")
@@ -204,7 +229,7 @@ object Main extends App with StrictLogging {
     }
 
     countsPerChargePoint foreach { case (chargePointId, counts) =>
-        println(s"$chargePointId: ${counts._1} failed / ${counts._2} errors / ${counts._3} passed")
+      logger.info(s"$chargePointId: ${counts._1} failed / ${counts._2} errors / ${counts._3} passed")
     }
 
     !countsPerChargePoint.values.exists(c => c._1 != 0 || c._2 != 0)

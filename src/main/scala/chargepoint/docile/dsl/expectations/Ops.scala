@@ -3,16 +3,32 @@ package dsl
 package expectations
 
 import com.thenewmotion.ocpp.messages._
+import com.thenewmotion.ocpp.json.PayloadErrorCode
+import com.thenewmotion.ocpp.json.api.OcppError
 
 trait Ops {
   self: CoreOps =>
 
   /** An IncomingMessageProcessor[T] is like a PartialFunction[T] with side effects */
   trait IncomingMessageProcessor[+T] {
+    /** Whether this processor can do something with a certain incoming message */
     def accepts(msg: IncomingMessage): Boolean
 
+    /**
+     * The outcome of applying this processor to the given incoming message.
+     *
+     *  Applying the processor do a message outside of its domain should throw
+     *  a MatchError.
+     */
     def result(msg: IncomingMessage): T
 
+    /**
+     * Execute the side effects of this processor.
+     *
+     * In an OCPP test, this is supposed to happen when an assertion expecting a
+     * certain incoming message has received an inomcing message that matches
+     * the expectation.
+     */
     def fireSideEffects(msg: IncomingMessage): Unit
 
     def lift(msg: IncomingMessage): Option[T] =
@@ -24,12 +40,12 @@ trait Ops {
 
   sealed trait IncomingRequestProcessor[+T] extends IncomingMessageProcessor[T]
 
-  def expectIncoming[T](proc: IncomingMessageProcessor[T]): T = {
+  def expectIncoming[T](proc: IncomingMessageProcessor[T])(implicit awaitTimeout: AwaitTimeout): T = {
     val promisedMsg = awaitIncoming(1).head
 
     proc.lift(promisedMsg) match {
       case None =>
-        self.fail(s"Expectation failed on ${promisedMsg.message}")
+        self.fail(s"Expectation failed on $promisedMsg")
       case Some(t) =>
         proc.fireSideEffects(promisedMsg)
         t
@@ -37,7 +53,7 @@ trait Ops {
   }
 
   // TODO: HList time?
-  def expectInAnyOrder[T](expectations: IncomingMessageProcessor[T]*): Seq[T] = {
+  def expectInAnyOrder[T](expectations: IncomingMessageProcessor[T]*)(implicit awaitTimeout: AwaitTimeout): Seq[T] = {
     val messages = awaitIncoming(expectations.length)
 
     val firstSatisfyingPermutation =
@@ -57,11 +73,51 @@ trait Ops {
     }
   }
 
-  def matching[T](matchPF: PartialFunction[Message, T]): IncomingMessageProcessor[T] =
-    new IncomingMessageProcessor[T] {
-      def accepts(msg: IncomingMessage): Boolean = matchPF.isDefinedAt(msg.message)
-      def result(msg: IncomingMessage): T = matchPF.apply(msg.message)
-      def fireSideEffects(msg: IncomingMessage): Unit = ()
+  def expectAllIgnoringUnmatched[T](expectations: IncomingMessageProcessor[T]*)(implicit awaitTimeout: AwaitTimeout): Seq[T] = {
+
+    def loop(matchesCount: Int, results: IndexedSeq[Option[T]]): IndexedSeq[Option[T]] = {
+      if (matchesCount >= expectations.length) {
+        results
+      } else {
+        val Seq(m) = awaitIncoming(1)
+        val processorIndex = expectations.indexWhere(_.accepts(m))
+
+        if (processorIndex < 0) {
+          opsLogger.info(s"Ignoring message $m")
+          loop(matchesCount, results)
+        } else {
+          val p = expectations(processorIndex)
+          p.fireSideEffects(m)
+          val result = p.result(m)
+          val nextResults = results.updated(processorIndex, Some(result))
+          val nextMatchesCount: Int = results(processorIndex) match {
+            case Some(_) => matchesCount
+            case None => matchesCount + 1
+          }
+
+          opsLogger.info(s"Received $processorIndex: $m, $nextMatchesCount to go")
+          loop(nextMatchesCount, nextResults)
+        }
+      }
+    }
+
+    loop(0, IndexedSeq.fill(expectations.size)(None)).flatten
+  }
+
+  def anything: IncomingMessageProcessor[IncomingMessage] =
+    new IncomingMessageProcessor[IncomingMessage] {
+      def accepts(msg: IncomingMessage): Boolean = true
+      def result(msg: IncomingMessage): IncomingMessage = msg
+      def fireSideEffects(msg: IncomingMessage): Unit = {}
+    }
+
+  def matching[T](matchPF: PartialFunction[Message, T]): IncomingMessageProcessor[T] = {
+      val incomingMessageMatcher: PartialFunction[IncomingMessage, Message] = {
+        case IncomingRequest(req, _) if matchPF.isDefinedAt(req) => req
+        case IncomingResponse(res)   if matchPF.isDefinedAt(res) => res
+      }
+
+      anything restrictedBy incomingMessageMatcher restrictedBy matchPF
     }
 
   def requestMatching[T](
@@ -83,6 +139,13 @@ trait Ops {
     def fireSideEffects(msg: IncomingMessage): Unit = ()
   }
 
+  def error: IncomingMessageProcessor[OcppError] =
+    anything restrictedBy { case IncomingError(error) => error}
+
+  def errorWithCode(code: PayloadErrorCode): IncomingMessageProcessor[OcppError] =
+    error restrictedBy { case e@OcppError(`code`, _) => e }
+
+
   def getConfigurationReq = requestMatching { case r: GetConfigurationReq => r }
   def changeConfigurationReq = requestMatching { case r: ChangeConfigurationReq => r }
   def getDiagnosticsReq = requestMatching { case r: GetDiagnosticsReq => r }
@@ -100,14 +163,29 @@ trait Ops {
 
 
   implicit class RichIncomingMessageProcessor[T](self: IncomingMessageProcessor[T]) {
-    def printingTheMessage: IncomingMessageProcessor[T] = new IncomingMessageProcessor[T] {
-      def accepts(msg: IncomingMessage): Boolean = self.accepts(msg)
-      def result(msg: IncomingMessage): T = self.result(msg)
-      def fireSideEffects(msg: IncomingMessage): Unit = {
-        self.fireSideEffects(msg)
-        println(msg.message)
+    def restrictedBy[U](restriction: PartialFunction[T, U]): IncomingMessageProcessor[U] =
+      new IncomingMessageProcessor[U] {
+        def accepts(msg: IncomingMessage) = self.accepts(msg) && restriction.isDefinedAt(self.result(msg))
+
+        def result(msg: IncomingMessage) = restriction.apply(self.result(msg))
+
+        def fireSideEffects(msg: IncomingMessage) = self.fireSideEffects(msg)
       }
-    }
+
+    def withSideEffects(sideEffects: IncomingMessage => Unit): IncomingMessageProcessor[T] =
+      new IncomingMessageProcessor[T] {
+        def accepts(msg: IncomingMessage) = self.accepts(msg)
+
+        def result(msg: IncomingMessage) = self.result(msg)
+
+        def fireSideEffects(msg: IncomingMessage): Unit = {
+          self.fireSideEffects(msg)
+          sideEffects(msg)
+        }
+      }
+
+    def printingTheMessage: IncomingMessageProcessor[T] =
+      self withSideEffects println
   }
 
   implicit class RichIncomingRequestProcessor[T](self: IncomingRequestProcessor[T]) {
@@ -122,10 +200,10 @@ trait Ops {
           case IncomingRequest(req, respond) =>
             val matchResult = result(msg)
             respond(resBuilder(matchResult))
-          case IncomingResponse(incomingRes) =>
+          case x =>
             fail(
               "Expecation failed: expected request, " +
-                s"received response instead: $incomingRes"
+                s"received something else instead: $x"
             )
         }
       }

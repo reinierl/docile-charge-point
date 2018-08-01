@@ -3,15 +3,17 @@ package test
 
 import java.io.File
 import java.net.URI
+
 import scala.tools.reflect.ToolBox
 import scala.util.{Failure, Success, Try}
 import scala.collection.mutable
-import scala.concurrent.{Await, Future, Promise, duration}
+import scala.concurrent.{duration, Await, Future, Promise}
 import duration.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
 import chargepoint.docile.dsl._
-import slogging.StrictLogging
 import com.thenewmotion.ocpp
+import com.typesafe.scalalogging.Logger
+import org.slf4j.LoggerFactory
 
 case class RunnerConfig(
   number: Int,
@@ -19,6 +21,8 @@ case class RunnerConfig(
   uri: URI,
   ocppVersion: ocpp.Version,
   authKey: Option[String],
+  keystoreFile: Option[String],
+  keystorePassword: Option[String],
   repeat: RepeatMode
 )
 
@@ -27,7 +31,9 @@ case class RunnerConfig(
   *
   * @param testCases The test cases to run
   */
-class Runner(testCases: Seq[TestCase]) extends StrictLogging {
+class Runner(testCases: Seq[TestCase]) {
+
+  private val logger: Logger = Logger(LoggerFactory.getLogger("runner"))
 
   /**
     * Run the test cases in this runner according to the given configuration
@@ -68,6 +74,7 @@ class Runner(testCases: Seq[TestCase]) extends StrictLogging {
         override def run(): Unit = {
           val resultsForChargePoint = runnerConfig.chargePointId -> Runner.this.runOneCase(runnerConfig)
           results(i - 1).success(resultsForChargePoint)
+          ()
         }
       }
     }
@@ -98,7 +105,7 @@ class Runner(testCases: Seq[TestCase]) extends StrictLogging {
 
     val res = mutable.ArrayBuffer.empty[Map[String, TestResult]]
 
-    println(msg)
+    logger.info(msg)
 
     var i = 0
 
@@ -123,7 +130,9 @@ class Runner(testCases: Seq[TestCase]) extends StrictLogging {
       runnerCfg.chargePointId,
       runnerCfg.uri,
       runnerCfg.ocppVersion,
-      runnerCfg.authKey
+      runnerCfg.authKey,
+      runnerCfg.keystoreFile,
+      runnerCfg.keystorePassword
     )) match {
       case Success(_)                => TestPassed
       case Failure(e: ScriptFailure) => TestFailed(e)
@@ -132,7 +141,6 @@ class Runner(testCases: Seq[TestCase]) extends StrictLogging {
     }
 
     logger.debug(s"Test ${c.name} run; disconnecting...")
-
     logger.debug(s"Disconnected OCPP connection for ${runnerCfg.chargePointId}/${c.name}")
 
     c.name -> res
@@ -140,7 +148,9 @@ class Runner(testCases: Seq[TestCase]) extends StrictLogging {
 }
 
 
-object Runner extends StrictLogging {
+object Runner {
+
+  private val logger = LoggerFactory.getLogger("runner")
 
   def interactive: Runner = new Runner(
     Seq(TestCase("Interactive test", () => new InteractiveOcppTest))
@@ -162,15 +172,25 @@ object Runner extends StrictLogging {
     val toolbox = currentMirror.mkToolBox()
 
     val preamble = s"""
+                   |import com.thenewmotion.ocpp.messages._
+                   |
                    |import scala.language.postfixOps
                    |import scala.concurrent.duration._
+                   |import scala.util.Random
                    |import java.time._
-                   |import com.thenewmotion.ocpp.messages._
+                   |import com.typesafe.scalalogging.Logger
+                   |import org.slf4j.LoggerFactory
+                   |
+                   |import chargepoint.docile.dsl.AwaitTimeout
+                   |import chargepoint.docile.dsl.Randomized._
                    |
                    |new chargepoint.docile.dsl.OcppTest
                    |  with chargepoint.docile.dsl.CoreOps
                    |  with chargepoint.docile.dsl.expectations.Ops
                    |  with chargepoint.docile.dsl.shortsend.Ops {
+                   |
+                   |  private implicit val awaitTimeout: AwaitTimeout = AwaitTimeout(45.seconds)
+                   |  private implicit val rand: Random = new Random()
                    |
                    |  def run() {
                    """.stripMargin
@@ -178,13 +198,15 @@ object Runner extends StrictLogging {
 
     val fileContents = scala.io.Source.fromFile(file).getLines.mkString("\n")
 
+    logger.info(s"Parsing and compiling script '$f'")
+
     val fileAst = toolbox.parse(preamble + fileContents + appendix)
 
-    logger.debug(s"Parsed $f")
+    logger.info(s"Parsed '$f'")
 
     val compiledCode = toolbox.compile(fileAst)
 
-    logger.debug(s"Compiled $f")
+    logger.info(s"Compiled '$f'")
 
     TestCase(testName, () => compiledCode().asInstanceOf[OcppTest])
   }

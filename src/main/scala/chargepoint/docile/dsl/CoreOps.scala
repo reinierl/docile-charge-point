@@ -2,15 +2,21 @@ package chargepoint.docile
 package dsl
 
 import java.util.concurrent.TimeoutException
+
 import scala.concurrent.duration._
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success, Try}
 import com.thenewmotion.ocpp.messages.{CentralSystemReq, CentralSystemReqRes, CentralSystemRes}
+import com.thenewmotion.ocpp.json.api.OcppException
+import com.typesafe.scalalogging.Logger
 import expectations.IncomingMessage
-import slogging.StrictLogging
+import org.slf4j.LoggerFactory
 
-trait CoreOps extends StrictLogging {
+trait CoreOps extends OpsLogging with MessageLogging {
+
+  val logger = Logger(LoggerFactory.getLogger("script"))
+  def say(m: String): Unit = logger.info(m)
 
   protected def connectionData: OcppConnectionData
 
@@ -31,26 +37,32 @@ trait CoreOps extends StrictLogging {
       case None =>
         throw ExpectationFailed("Trying to send an OCPP message while not connected")
       case Some (client) =>
-        logger.info(s">> $req")
+        outgoingLogger.info(s"$req")
         client.send(req)(reqRes) onComplete {
           case Success(res) =>
-            logger.info(s"<< $res")
+            incomingLogger.info(s"$res")
             connectionData.receivedMsgManager.enqueue(
               IncomingMessage(res)
             )
+          case Failure(OcppException(ocppError)) =>
+            incomingLogger.info(s"$ocppError")
+            connectionData.receivedMsgManager.enqueue(
+              IncomingMessage(ocppError)
+            )
           case Failure(e) =>
-            logger.info(s"Failed to get response to outgoing OCPP request $req: ${e.getMessage}")
-            // TODO handle this nicer; should be possible to write scripts expecting failure (without using catch ;-) )
+            opsLogger.error(s"Failed to get response to outgoing OCPP request $req: ${e.getMessage}\n\t${e.getStackTrace.mkString("\n\t")}")
             throw ExecutionError(e)
     }
   }
 
+  def awaitIncoming(num: Int)(implicit awaitTimeout: AwaitTimeout): Seq[IncomingMessage] = {
 
-  def awaitIncoming(num: Int): Seq[IncomingMessage] = {
+    val AwaitTimeout(timeout) = awaitTimeout
     def getMsgs = connectionData.receivedMsgManager.dequeue(num)
-    Try(Await.result(getMsgs, 45.seconds)) match {
+
+    Try(Await.result(getMsgs, timeout)) match {
       case Success(msgs)                => msgs
-      case Failure(e: TimeoutException) => fail(s"Expected message not received after 45 seconds")
+      case Failure(e: TimeoutException) => fail(s"Expected message not received after $timeout")
       case Failure(e)                   => error(e)
     }
   }
@@ -67,7 +79,10 @@ trait CoreOps extends StrictLogging {
 
   def error(throwable: Throwable): Nothing = throw ExecutionError(throwable)
 
-  def wait(duration: FiniteDuration): Unit = Thread.sleep(duration.toMillis)
+  def sleep(duration: Duration): Unit = {
+    opsLogger.info(s"Sleeping for $duration")
+    Thread.sleep(duration.toMillis)
+  }
 
   def prompt(cue: String): String = {
     println(s"$cue: ")
